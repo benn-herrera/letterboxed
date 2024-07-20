@@ -23,3 +23,7 @@ set(CMAKE_INCLUDE "${PROJECT_SOURCE_DIR}/cmake")
 set(TARGET letterboxed)
 include("${CMAKE_INCLUDE}/target_exe.cmake")
 
+add_custom_command(TARGET letterboxed
+  COMMAND 
+  "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/words_alpha.txt" "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/"
+)
