@@ -1,0 +1,22 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+*.webp binary
+*.png binary
+*.jpg binary
+
+*.c text
+*.c++ text
+*.command text eol=lf
+*.cpp text
+*.cxx text
+*.cmake text
+*.h text
+*.h++ text
+*.hpp text
+*.m text
+*.md text
+*.mm text
+*.py text eol=lf
+*.sh text eol=lf
+*.txt text

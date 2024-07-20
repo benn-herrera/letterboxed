@@ -1,0 +1,6 @@
+build/
+.venv/
+*.log
+*.zip
+*.tgz
+*AIO.c*
