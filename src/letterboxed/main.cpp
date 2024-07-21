@@ -1,6 +1,5 @@
 #include "core/core.h"
 #include "word_db/word_db.h"
-#include <direct.h>
 
 int main(int argc, char** argv) {
   using namespace bng::core;
@@ -45,7 +44,7 @@ int main(int argc, char** argv) {
         break;
       }
     }
-    (void)_chdir(file_path);
+    (void)chdir(file_path);
   }
 
   {

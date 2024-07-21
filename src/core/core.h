@@ -9,6 +9,10 @@
 #include <chrono>
 
 #if defined(BNG_IS_WINDOWS)
+# include <direct.h>
+# if !defined(chdir)
+#   define chdir _chdir
+# endif
 # pragma warning( disable : 4514 5045 )
 # if defined(BNG_DEBUG)
 extern "C" { __declspec(dllimport) void __stdcall OutputDebugStringA(const char*); }
@@ -16,6 +20,7 @@ extern "C" { __declspec(dllimport) void __stdcall OutputDebugStringA(const char*
 #   define BNG_PUTE(S) do { const char* s = S; fputs(s, stderr); OutputDebugStringA(s); } while(0)
 # endif
 #else
+# include <unistd.h>
 using rsize_t = uint32_t;
 inline void strcpy_s(char* dst, rsize_t max_count, const char* src) {
   (void)max_count;
@@ -25,7 +30,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
   *pfp = fopen(path, mode);
   return !!*pfp;
 }
-#define sprintf_s(DST, MAX_COUNT, FMT, ...) sprintf_s(DST, FMT, ##__VA_ARGS__)
+#define sprintf_s(DST, MAX_COUNT, FMT, ...) sprintf(DST, FMT, ##__VA_ARGS__)
 #endif
 
 #if !defined(BNG_PUTI)
