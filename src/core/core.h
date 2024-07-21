@@ -41,8 +41,12 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_DECL_NO_COPY(CLASS) \
   CLASS(const CLASS&) = delete; \
   CLASS& operator =(const CLASS&) = delete;\
-  CLASS(CLASS&& rhs) noexcept { *this = std::move(rhs); }; \
+  CLASS(CLASS&& rhs) noexcept { \
+    memcpy(this, &rhs, sizeof(*this)); \
+    memset(&rhs, 0, sizeof(*this)); \
+  }; \
   CLASS& operator =(CLASS&& rhs) noexcept { \
+    this->~CLASS(); \
     memcpy(this, &rhs, sizeof(*this)); \
     memset(&rhs, 0, sizeof(*this)); \
     return *this; \
