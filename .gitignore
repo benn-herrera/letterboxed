@@ -1,4 +1,6 @@
 build/
+CMakeFiles/
+CMakeCache.txt
 .venv/
 *.log
 *.zip
