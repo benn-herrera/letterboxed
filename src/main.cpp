@@ -530,8 +530,8 @@ private:
 
     WordDB out;
 
-    printf("packing down from %u words, %u bytes -> %u words, %u bytes\n",
-      stats.total_count, dict_buf.size_bytes, live_count, live_size);
+    //printf("packing down from %u words, %u bytes -> %u words, %u bytes\n",
+    //  stats.total_count, dict_buf.size_bytes, live_count, live_size);
 
     out.dict_buf = DictBuf(live_size);
     out.stats = stats;
