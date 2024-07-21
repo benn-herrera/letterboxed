@@ -1,7 +1,8 @@
 #include "core/core.h"
 #include "word_db/word_db.h"
+#include <direct.h>
 
-int main(int argc, const char** argv) {
+int main(int argc, char** argv) {
   using namespace bng::core;
   using namespace bng::word_db;
 
@@ -34,33 +35,33 @@ int main(int argc, const char** argv) {
   WordDB wordDB;
 
   // load word database
+
+  {
+    char file_path[512];
+    strcpy_s(file_path, sizeof(file_path), argv[0]);
+    for (char* e = file_path + strlen(file_path) - 1; e > file_path; --e) {
+      if (*e == '/' || *e == '\\') {
+        *e = 0;
+        break;
+      }
+    }
+    (void)_chdir(file_path);
+  }
+
   {
     auto txt_name = "words_alpha.txt";
     auto pre_name = "words_alpha.pre";
-    char file_path[512];
-    char* e;
-    {
-      strcpy_s(file_path, sizeof(file_path), argv[0]);
-      e = file_path + strlen(file_path) - 1;
-      for (; e > file_path && *e != '/' && *e != '\\'; --e)
-        ;
-      e[1] = 0;
-      e++;
-    }
-    strcpy_s(e, 512 - rsize_t(e - file_path), pre_name);
     {
       auto preload_timer = ScopedTimer();
-      wordDB.load(file_path);
+      wordDB.load(pre_name);
       preload_ms = preload_timer.elapsed_ms();
     }
 
     if (!wordDB) {
       BNG_PRINT("pre-processing %s to %s.\n", txt_name, pre_name);
       auto preload_timer = ScopedTimer();
-      strcpy_s(e, 512 - rsize_t(e - file_path), txt_name);
-      wordDB.load(file_path);
-      strcpy_s(e, 512 - rsize_t(e - file_path), pre_name);
-      wordDB.save(file_path);
+      wordDB.load(txt_name);
+      wordDB.save(pre_name);
       preload_ms = preload_timer.elapsed_ms();
       BNG_PRINT("done pre-processing to %s.\n", pre_name);
     }
