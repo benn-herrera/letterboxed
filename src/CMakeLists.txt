@@ -9,7 +9,7 @@ if (CMAKE_SYSTEM_NAME)
   include(cmake/platform_init.cmake)
 endif()
 
-project(bng VERSION 0.1.0 LANGUAGES CXX C)
+project(letterboxed VERSION 0.1.0 LANGUAGES CXX)
 
 if (NOT BNG_PLATFORM)
   include(cmake/platform_init.cmake)
@@ -24,6 +24,6 @@ set(TARGET letterboxed)
 include("${CMAKE_INCLUDE}/target_exe.cmake")
 
 add_custom_command(TARGET letterboxed
-  COMMAND 
-  "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/words_alpha.txt" "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/"
+  COMMAND
+  "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/words_alpha.txt" "$<TARGET_FILE_DIR:${TARGET}>/"
 )
