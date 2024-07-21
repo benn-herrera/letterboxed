@@ -57,7 +57,7 @@ include("${CMAKE_INCLUDE}/options.cmake")
 
 add_compile_definitions(
   $<IF:$<CONFIG:Debug>,BNG_DEBUG,>
-  $<IF:$<CONFIG:RelWithDebInfo>,-D${BNG_OPTIMIZED_BUILD_TYPE},>
+  $<IF:$<CONFIG:RelWithDebInfo>,${BNG_OPTIMIZED_BUILD_TYPE},>
 )
 
 get_filename_component(REPO_ROOT_DIR "${PROJECT_SOURCE_DIR}" DIRECTORY)
