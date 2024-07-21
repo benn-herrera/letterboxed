@@ -1,6 +1,5 @@
 #pragma once
 #include "core/core.h"
-#include <algorithm>
 
 namespace bng::word_db {
   using namespace core;
@@ -10,19 +9,9 @@ namespace bng::word_db {
   public:
     BNG_DECL_NO_COPY(DictBuf);
 
-    explicit DictBuf(uint32_t sz = 0) {
-      if (sz) {
-        _text = new char[sz + 2];
-        _capacity = sz;
-        _text[0] = _text[sz] = _text[sz + 1] = 0;
-      }
-    }
+    explicit DictBuf(uint32_t sz = 0);
 
     Word append(const DictBuf& src, const Word& w);
-
-    static uint32_t header_size_bytes() {
-      return offsetof(DictBuf, _text);
-    }
 
     bool in_capacity(const char* p) const {
       return p < (_text + _capacity);
@@ -44,6 +33,9 @@ namespace bng::word_db {
 
     const char* back() const { return _text + _size; }
 
+    // format example: printf("%.*s", w.length, buf.ptr(w));
+    inline const char* ptr(const Word& w) const;
+
     void set_size(uint32_t new_size_bytes) {
       BNG_VERIFY(new_size_bytes <= _capacity, "");
       _size = new_size_bytes;
@@ -63,8 +55,9 @@ namespace bng::word_db {
       _capacity = 0;
     }
 
-    // format example: printf("%.*s", w.length, buf.ptr(w));
-    inline const char* ptr(const Word& w) const;
+    static uint32_t header_size_bytes() {
+      return offsetof(DictBuf, _text);
+    }
 
   private:
     uint32_t _capacity = 0;
@@ -73,11 +66,11 @@ namespace bng::word_db {
   };
 
   struct Word {
-    uint32_t begin : 26 = 0;
-    uint32_t length : 6 = 0;
-    uint32_t letters : 26 = 0;
-    uint32_t letter_count : 5 = 0;
-    uint32_t is_dead : 1 = 0;
+    uint64_t begin : 26 = 0;
+    uint64_t length : 6 = 0;
+    uint64_t letters : 26 = 0;
+    uint64_t letter_count : 5 = 0;
+    uint64_t is_dead : 1 = 0;
 
     Word() = default;
 
@@ -182,6 +175,7 @@ namespace bng::word_db {
 
     void cull(const SideSet& sides);
 
+    // format example: printf("%.*s", w.length, word_db.str(w));
     const char* str(const Word& w) const {
       return dict_buf.ptr(w);
     }
@@ -211,7 +205,9 @@ namespace bng::word_db {
     }
 
     const Word* last_word(uint32_t letter_i) const {
-      return first_word(letter_i) + stats.word_counts[letter_i] - 1;
+      auto pword = first_word(letter_i) + stats.word_counts[letter_i] - 1;
+      BNG_VERIFY(!*(pword + 1), "word list for letter not null terminated.");
+      return pword;
     }
 
   private:
@@ -220,6 +216,7 @@ namespace bng::word_db {
       for (auto c : stats.word_counts) {
         _live_word_count += c;
       }
+      BNG_VERIFY(_live_word_count <= stats.total_count, "");
       return _live_word_count;
     }
 
@@ -228,6 +225,7 @@ namespace bng::word_db {
       for (auto s : size_bytes_by_letter) {
         _live_size_bytes += s;
       }
+      BNG_VERIFY(_live_size_bytes <= dict_buf.size(), "");
       return _live_size_bytes;
     }
 
@@ -286,28 +284,17 @@ namespace bng::word_db {
       }
     }
 
-    void add(WordI a, WordI b) {
-      BNG_VERIFY(count < capacity, "out of space");
-      buf[count++] = Solution{a, b};
-    }
-
-    void sort(const WordDB& wordDB) {
-      std::sort(
-        buf,
-        buf + count,
-        [&wordDB](auto& lhs, auto& rhs) -> bool {
-          return
-            (wordDB.word(lhs.a).length + wordDB.word(lhs.b).length)
-            < 
-            (wordDB.word(rhs.a).length + wordDB.word(rhs.b).length);
-        }
-      );
-    }
-
     ~SolutionSet() {
       delete[] buf;
       buf = nullptr;
       count = capacity = 0;
     }
+
+    void add(WordI a, WordI b) {
+      BNG_VERIFY(count < capacity, "out of space");
+      buf[count++] = Solution{a, b};
+    }
+
+    void sort(const WordDB& wordDB);
   };
 } // namespace bng::word_db

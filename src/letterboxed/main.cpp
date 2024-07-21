@@ -108,7 +108,7 @@ int main(int argc, const char** argv) {
     auto sa = wordDB.str(a);
     auto sb = wordDB.str(b);
 
-    BNG_PRINT("    %.*s -> %.*s\n", a.length, sa, b.length, sb);
+    BNG_PRINT("    %.*s -> %.*s\n", uint32_t(a.length), sa, uint32_t(b.length), sb);
   }
 
   BNG_PRINT("\npreload_time: %lgms  solution time: %lgms  total_time: %lgms\n",

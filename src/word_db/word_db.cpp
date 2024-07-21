@@ -1,15 +1,24 @@
 #include "word_db.h"
+#include <algorithm>
 
 namespace bng::word_db {
   //
   // DictBuf
   // 
 
+  DictBuf::DictBuf(uint32_t sz) {
+    if (sz) {
+      _text = new char[sz + 2];
+      _capacity = sz;
+      _text[0] = _text[sz] = _text[sz + 1] = 0;
+    }
+  }
+
   Word DictBuf::append(const DictBuf& src, const Word& w) {
     BNG_VERIFY(_size + w.length < _capacity, "");
     auto new_word = Word(w, _size);
     memcpy(_text + _size, src.ptr(w), w.length + 1);
-    _size += w.length + 1;
+    _size += uint32_t(w.length + 1);
     return new_word;
   }
 
@@ -38,6 +47,24 @@ namespace bng::word_db {
 
 
   //
+  // SolutionSet
+  //
+
+  void SolutionSet::sort(const WordDB& wordDB) {
+    std::sort(
+      buf,
+      buf + count,
+      [&wordDB](auto& lhs, auto& rhs) -> bool {
+        return
+          (wordDB.word(lhs.a).length + wordDB.word(lhs.b).length)
+          <
+          (wordDB.word(rhs.a).length + wordDB.word(rhs.b).length);
+      }
+    );
+  }
+
+
+  //
   // WordDB Public
   //
 
@@ -47,11 +74,24 @@ namespace bng::word_db {
     const auto ext =
       (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | uint32_t(p[3]);
     switch (ext) {
-    case '.pre': return load_preproc(path);
-    case '.txt': return load_word_list(path);
+    case '.pre': load_preproc(path); break;
+    case '.txt': load_word_list(path); break;
+    default:
+      BNG_VERIFY(false, "unknown extension. must be .txt or .pre");
+      return false;
     }
-    BNG_VERIFY(false, "unknown extension. must be .txt or .pre");
-    return false;
+
+    for (uint32_t i = 0; i < 26; ++i) {
+      if (stats.word_counts[i]) {
+        BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "inconsistent data");
+        BNG_VERIFY(first_letter_idx(*last_word(i)) == i, "inconsistent data");
+      }
+      else {
+        BNG_VERIFY(words_by_letter[i] == WordI::kInvalid, "inconsitent metadata");
+      }
+    }
+
+    return true;
   }
 
   void WordDB::save(const char* path) {
@@ -122,11 +162,14 @@ namespace bng::word_db {
         *this = WordDB();
         return false;
       }
+
       words_buf = new Word[words_count()];
-      dict_buf = DictBuf(dict_buf.size());
       if (fread(words_buf, words_size_bytes(), 1, fin) != 1) {
         BNG_VERIFY(false, "");
       }
+
+      dict_buf = DictBuf(dict_buf.capacity());
+      dict_buf.set_size(dict_buf.capacity());
       if (fread(dict_buf.front(), dict_buf.capacity(), 1, fin) != 1) {
         BNG_VERIFY(false, "");
       }
@@ -136,7 +179,7 @@ namespace bng::word_db {
 
   void WordDB::save_preproc(const char* path) const {
     BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "");
-    BNG_VERIFY(dict_buf.size() == live_size_bytes(), "");
+    BNG_VERIFY(dict_buf.size() == live_size_bytes() && dict_buf.size() == dict_buf.capacity(), "");
     auto fout = File(path, "wb");
     BNG_VERIFY(fout, "");
     if (fwrite(this, header_size_bytes(), 1, fout) != 1) {
@@ -231,7 +274,7 @@ namespace bng::word_db {
       }
       p += wp->read_str(dict_buf, p);
       if (!wp->is_dead) {
-        row_live_size_bytes += (wp->length + 1);
+        row_live_size_bytes += uint32_t(wp->length + 1);
         ++row_live_count;
       }
     }
@@ -250,7 +293,6 @@ namespace bng::word_db {
     for (uint32_t i = 0; i < 26; ++i) {
       if (stats.word_counts[i]) {
         BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "");
-        BNG_VERIFY(first_letter_idx(*last_word(i)) == i, "");
       }
       else {
         words_by_letter[i] = WordI::kInvalid;
@@ -264,7 +306,7 @@ namespace bng::word_db {
   void WordDB::cull_word(Word& word) {
     auto li = first_letter_idx(word);
     BNG_VERIFY(size_bytes_by_letter[li] > word.length, "");
-    size_bytes_by_letter[li] -= (word.length + 1);
+    size_bytes_by_letter[li] -= uint32_t(word.length + 1);
     BNG_VERIFY(stats.word_counts[li], "");
     --stats.word_counts[li];
     word.is_dead = true;
