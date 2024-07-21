@@ -20,10 +20,10 @@ include(cmake/platform_config.cmake)
 
 set(CMAKE_INCLUDE "${PROJECT_SOURCE_DIR}/cmake")
 
-set(TARGET letterboxed)
-include("${CMAKE_INCLUDE}/target_exe.cmake")
-
-add_custom_command(TARGET letterboxed
-  COMMAND
-  "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/words_alpha.txt" "$<TARGET_FILE_DIR:${TARGET}>/"
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR} 
 )
+
+add_subdirectory(core)
+add_subdirectory(word_db)
+add_subdirectory(letterboxed)
