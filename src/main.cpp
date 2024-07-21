@@ -119,39 +119,6 @@ inline uint32_t letter_to_bit(char ltr) {
   return 1u << i;
 }
 
-/*
-inline uint32_t bit_to_index(uint32_t b) {
-  assert(b && !(b & (b - 1)));
-  uint32_t i = 0, j;
-
-  j = uint32_t(!!(0xffff0000 & b)) << 4;
-  b >>= j;
-  i += j;
-
-  j = uint32_t(!!(0xff00 & b)) << 3;
-  b >>= j;
-  i += j;
-
-  j = uint32_t(!!(0xf0 & b)) << 2;
-  b >>= j;
-  i += j;
-
-  j = uint32_t(!!(0xc & b)) << 1;
-  b >>= j;
-  i += j;
-
-  j = uint32_t(!!(0x2 & b));
-  b >>= j;
-  i += j;
-
-  return i;
-}
-
-inline char bit_to_letter(uint32_t b) {
-  return char('a' + bit_to_index(b));
-}
-*/
-
 
 struct Word {
   uint32_t begin : 26 = 0;
@@ -330,14 +297,6 @@ struct WordDB {
 
   uint32_t last_letter_idx(const Word& w) const {
     return letter_to_idx(w.str(dict_buf)[(w.length - 1)]);
-  }
-
-  uint32_t first_letter_bit(const Word& w) const {
-    return letter_to_bit(w.str(dict_buf)[0]);
-  }
-
-  uint32_t last_letter_bit(const Word& w) const {
-    return letter_to_bit(w.str(dict_buf)[(w.length - 1)]);
   }
 
   WordI word_i(const Word& w) const {
