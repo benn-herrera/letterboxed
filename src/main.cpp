@@ -6,7 +6,15 @@
 #include <algorithm>
 #include <chrono>
 
-#pragma warning( disable : 4514 5045 )
+#if defined(BNG_IS_WINDOWS)
+# pragma warning( disable : 4514 5045 )
+#else
+using rsize_t = uint32_t;
+inline void strcpy_s(char* dst, rsize_t max_count, const char* src) {
+  (void)max_count;
+  strcpy(dst, src);
+}
+#endif
 
 #define DECL_NO_COPY(CLASS) \
   CLASS(const CLASS&) = delete; \
@@ -503,7 +511,7 @@ private:
     const auto ote = otxt + out.dict_buf.size_bytes; (void)ote;
 
     Word* wpo = out.words_buf;
-    uint32_t live_row_count = 0;
+    uint32_t live_row_count = 0; (void)live_row_count;
 
     for (uint32_t li = 0; li < 26; ++li) {      
       if (!stats.word_counts[li]) {
