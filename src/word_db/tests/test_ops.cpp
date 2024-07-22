@@ -38,11 +38,11 @@ void write_word_list() {
 }
 
 BNG_BEGIN_TEST(dict_counts) {
-	DictBuf db(sizeof(dict_text) - 1);
+	TextBuf db(sizeof(dict_text) - 1);
 	memcpy(db.end(), dict_text, sizeof(dict_text) - 1);
 	db.set_size(db.capacity());
 
-	DictCounts stats = db.collect_counts();
+	TextStats stats = db.collect_stats();
 
 	BT_CHECK(stats.word_counts['a' -'a'] == 2);
 	BT_CHECK(stats.word_counts['b' - 'a'] == 2);

@@ -6,7 +6,7 @@ namespace bng::word_db {
   // DictBuf
   // 
 
-  DictBuf::DictBuf(uint32_t sz) {
+  TextBuf::TextBuf(uint32_t sz) {
     if (sz) {
       _text = new char[sz + 2];
       _capacity = sz;
@@ -14,7 +14,7 @@ namespace bng::word_db {
     }
   }
 
-  Word DictBuf::append(const DictBuf& src, const Word& w) {
+  Word TextBuf::append(const TextBuf& src, const Word& w) {
     BNG_VERIFY(_size + w.length < _capacity, "");
     auto new_word = Word(w, _size);
     memcpy(_text + _size, src.ptr(w), w.length + 1);
@@ -87,7 +87,7 @@ namespace bng::word_db {
         BNG_VERIFY(first_letter_idx(*last_word(i)) == i, "inconsistent data");
       }
       else {
-        BNG_VERIFY(words_by_letter[i] == WordI::kInvalid, "inconsitent metadata");
+        BNG_VERIFY(words_by_letter[i] == WordIdx::kInvalid, "inconsitent metadata");
       }
     }
 
@@ -116,7 +116,7 @@ namespace bng::word_db {
 
       // letter not in puzzle
       if (!(lb & all_letters)) {
-        words_by_letter[li] = WordI::kInvalid;
+        words_by_letter[li] = WordIdx::kInvalid;
         live_counts.word_counts[li] = 0;
         continue;
       }
@@ -170,7 +170,7 @@ namespace bng::word_db {
         BNG_VERIFY(false, "");
       }
 
-      dict_buf = DictBuf(dict_buf.capacity());
+      dict_buf = TextBuf(dict_buf.capacity());
       dict_buf.set_size(dict_buf.capacity());
       if (fread(dict_buf.begin(), dict_buf.capacity(), 1, fin) != 1) {
         BNG_VERIFY(false, "");
@@ -181,7 +181,7 @@ namespace bng::word_db {
 
   void WordDB::save_preproc(const char* path) const {
     BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "");
-    BNG_VERIFY(dict_buf.size() == live_size_bytes() && dict_buf.size() == dict_buf.capacity(), "");
+    BNG_VERIFY(dict_buf.size() == live_counts.total_size_bytes() && dict_buf.size() == dict_buf.capacity(), "");
     auto fout = File(path, "wb");
     BNG_VERIFY(fout, "");
     if (fwrite(this, header_size_bytes(), 1, fout) != 1) {
@@ -197,10 +197,10 @@ namespace bng::word_db {
 
 
   bool WordDB::load_word_list(const char* path) {
-    dict_buf = DictBuf();
+    dict_buf = TextBuf();
 
     if (auto dict_file = File(path, "r")) {
-      dict_buf = DictBuf(dict_file.size_bytes());
+      dict_buf = TextBuf(dict_file.size_bytes());
       if (size_t read_count = fread(dict_buf.begin(), 1, dict_buf.capacity(), dict_file.fp)) {
         if (read_count < dict_buf.capacity()) {
           memset(dict_buf.begin() + read_count, 0, dict_buf.capacity() - read_count);
@@ -218,18 +218,19 @@ namespace bng::word_db {
   }
 
   void WordDB::process_word_list() {
-    mem_counts = dict_buf.collect_counts();
+    mem_counts = dict_buf.collect_stats();
     BNG_VERIFY(mem_counts, "");
 
     collate_words();
     *this = clone_packed();
   }
 
-  DictCounts DictBuf::collect_counts() const {
+  TextStats TextBuf::collect_stats() const {
     BNG_VERIFY(*this, "");
-    auto stats = DictCounts{};
+    auto stats = TextStats{};
    
     for (const char* p = begin(); *p; ) {
+      const auto pw = p;
       auto li = Word::letter_to_idx(*p);
       ++stats.word_counts[li];
       // catch out of order dictionary
@@ -238,6 +239,7 @@ namespace bng::word_db {
         ;
       for (; *p && Word::is_end(p); ++p)
         ;
+      stats.size_bytes[li] += uint32_t(p - pw);
     }
 
     return stats;
@@ -252,19 +254,22 @@ namespace bng::word_db {
     uint32_t row_live_count = 0;
     uint32_t row_live_size_bytes = 0;
 
-    memset(words_by_letter, 0xff, sizeof(words_by_letter));
+    for (auto& wbl : words_by_letter) {
+      wbl = WordIdx::kInvalid;
+    }
+
     const char* p = dict_buf.begin();
     for (; *p; ++wp) {
       BNG_VERIFY(dict_buf.in_capacity(p), "");
       auto li = Word::letter_to_idx(*p);
-      if (words_by_letter[li] == WordI::kInvalid) {
+      if (words_by_letter[li] == WordIdx::kInvalid) {
         if (li) {
           // null terminate
           *wp++ = Word();
           const auto row_total_count = uint32_t(wp - wp_row_start); (void)row_total_count;
           BNG_VERIFY(row_total_count == mem_counts.word_counts[li - 1] + 1, "");
           live_counts.word_counts[li - 1] = row_live_count;
-          size_bytes_by_letter[li - 1] = row_live_size_bytes;
+          live_counts.size_bytes[li - 1] = row_live_size_bytes;
           row_live_count = 0;
           row_live_size_bytes = 0;
           wp_row_start = wp;
@@ -287,15 +292,12 @@ namespace bng::word_db {
       const auto row_total_count = uint32_t(wp - wp_row_start); (void)row_total_count;
       BNG_VERIFY(row_total_count == mem_counts.word_counts[25] + 1, "");
       live_counts.word_counts[25] = row_live_count;
-      size_bytes_by_letter[25] = row_live_size_bytes;
+      live_counts.size_bytes[25] = row_live_size_bytes;
     }
 
     for (uint32_t i = 0; i < 26; ++i) {
-      if (live_counts.word_counts[i]) {
-        BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "");
-      }
-      else {
-        words_by_letter[i] = WordI::kInvalid;
+      if (!live_counts.word_counts[i]) {
+        words_by_letter[i] = WordIdx::kInvalid;
       }
     }
 
@@ -305,15 +307,15 @@ namespace bng::word_db {
 
   void WordDB::cull_word(Word& word) {
     auto li = first_letter_idx(word);
-    BNG_VERIFY(size_bytes_by_letter[li] > word.length, "");
-    size_bytes_by_letter[li] -= uint32_t(word.length + 1);
+    BNG_VERIFY(live_counts.size_bytes[li] > word.length, "");
+    live_counts.size_bytes[li] -= uint32_t(word.length + 1);
     BNG_VERIFY(live_counts.word_counts[li], "");
     --live_counts.word_counts[li];
     word.is_dead = true;
   }
 
   WordDB WordDB::clone_packed() const {
-    const uint32_t live_size = live_size_bytes();
+    const uint32_t live_size = live_counts.total_size_bytes();
     const uint32_t live_count = live_counts.total_count();
     BNG_VERIFY(
       *this &&
@@ -322,9 +324,8 @@ namespace bng::word_db {
 
     WordDB out;
 
-    out.dict_buf = DictBuf(live_size);
+    out.dict_buf = TextBuf(live_size);
     out.mem_counts = out.live_counts = live_counts;
-    memcpy(out.size_bytes_by_letter, size_bytes_by_letter, sizeof(size_bytes_by_letter));
     out.words_buf = new Word[out.words_count()];
 
     Word* wpo = out.words_buf;
@@ -332,7 +333,7 @@ namespace bng::word_db {
 
     for (uint32_t li = 0; li < 26; ++li) {
       if (!live_counts.word_counts[li]) {
-        out.words_by_letter[li] = WordI::kInvalid;
+        out.words_by_letter[li] = WordIdx::kInvalid;
         continue;
       }
 

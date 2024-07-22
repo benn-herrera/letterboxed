@@ -3,11 +3,14 @@
 
 namespace bng::word_db {
   using namespace core;
-  struct Word;
 
 
-  struct DictCounts {
+  class TextBuf;
+
+
+  struct TextStats {
     uint32_t word_counts[26] = {};
+    uint32_t size_bytes[26] = {};
 
     operator bool() const {
       for (auto wc : word_counts) {
@@ -29,67 +32,16 @@ namespace bng::word_db {
       }
       return tc;
     }
+
+    uint32_t total_size_bytes() const {
+      uint32_t tsb = 0;
+      for (auto sb : size_bytes) {
+        tsb += sb;
+      }
+      return tsb;
+    }
   };
 
-
-  class DictBuf{
-  public:
-    BNG_DECL_NO_COPY(DictBuf);
-
-    explicit DictBuf(uint32_t sz = 0);
-
-    Word append(const DictBuf& src, const Word& w);
-
-    uint32_t capacity() const { return _capacity; }
-    uint32_t size() const { return _size; }
-    char* begin() { return _text; }
-    char* front() { return _text; }
-    const char* begin() const { return _text; }
-    const char* front() const { return _text; }
-    char* end() { return _text + _size; }
-    const char* end() const { return _text + _size; }
-
-    bool in_size(const char* p) const {
-      return p < (_text + _size);
-    }
-
-    bool in_capacity(const char* p) const {
-      return p < (_text + _capacity);
-    }
-
-    // format example: printf("%.*s", w.length, buf.ptr(w));
-    inline const char* ptr(const Word& w) const;
-
-    void set_size(uint32_t new_size_bytes) {
-      BNG_VERIFY(new_size_bytes <= _capacity, "");
-      _size = new_size_bytes;
-    }
-
-    operator bool() const {
-      return !!_size;
-    }
-
-    bool operator!() const {
-      return !_size;
-    }
-
-    DictCounts collect_counts() const;
-
-    ~DictBuf() {
-      delete[] _text;
-      _text = nullptr;
-      _capacity = 0;
-    }
-
-    static uint32_t header_size_bytes() {
-      return offsetof(DictBuf, _text);
-    }
-
-  private:
-    uint32_t _capacity = 0;
-    uint32_t _size = 0;
-    char* _text = nullptr;
-  };
 
   struct Word {
     uint64_t begin : 26 = 0;
@@ -106,9 +58,7 @@ namespace bng::word_db {
     }
 
     uint32_t read_str(const char* buf_start, const char* p);
-    uint32_t read_str(const DictBuf& buf, const char* p) {
-      return read_str(buf.begin(), p);
-    }
+    inline uint32_t read_str(const TextBuf& buf, const char* p);
 
     operator bool() const {
       return !!length;
@@ -141,13 +91,76 @@ namespace bng::word_db {
   };
 
 
-  inline const char* DictBuf::ptr(const Word& w) const {
-    BNG_VERIFY(w.begin < _size, "word out of range");
-    return _text + w.begin;
+  class TextBuf {
+  public:
+    BNG_DECL_NO_COPY(TextBuf);
+
+    explicit TextBuf(uint32_t sz = 0);
+
+    Word append(const TextBuf& src, const Word& w);
+
+    uint32_t capacity() const { return _capacity; }
+    uint32_t size() const { return _size; }
+    char* begin() { return _text; }
+    char* front() { return _text; }
+    const char* begin() const { return _text; }
+    const char* front() const { return _text; }
+    char* end() { return _text + _size; }
+    const char* end() const { return _text + _size; }
+
+    void set_size(uint32_t new_size_bytes) {
+      BNG_VERIFY(new_size_bytes <= _capacity, "");
+      _size = new_size_bytes;
+    }
+
+    bool in_size(const char* p) const {
+      return p < (_text + _size);
+    }
+
+    bool in_capacity(const char* p) const {
+      return p < (_text + _capacity);
+    }
+
+    // format example: printf("%.*s", w.length, buf.ptr(w));
+    const char* ptr(const Word& w) const {
+      BNG_VERIFY(w.begin < _size, "word out of range");
+      return _text + w.begin;
+    }
+
+    operator bool() const {
+      return !!_size;
+    }
+
+    bool operator!() const {
+      return !_size;
+    }
+
+    TextStats collect_stats() const;
+
+    ~TextBuf() {
+      delete[] _text;
+      _text = nullptr;
+      _capacity = 0;
+    }
+
+    static uint32_t header_size_bytes() {
+      return offsetof(TextBuf, _text);
+    }
+
+  private:
+    uint32_t _capacity = 0;
+    uint32_t _size = 0;
+    char* _text = nullptr;
+  };
+
+
+  inline uint32_t Word::read_str(const TextBuf& buf, const char* p) {
+    return read_str(buf.begin(), p);
   }
 
 
-  enum class WordI : uint32_t { kInvalid = ~0u };
+  enum class WordIdx : uint32_t { kInvalid = ~0u };
+
 
   class WordDB {
   public:
@@ -199,14 +212,14 @@ namespace bng::word_db {
       return Word::letter_to_idx(dict_buf.ptr(w)[(w.length - 1)]);
     }
 
-    WordI word_i(const Word& w) const {
+    WordIdx word_i(const Word& w) const {
       auto wi = uint32_t(&w - words_buf);
       BNG_VERIFY(wi < mem_counts.total_count(), "");
-      return WordI(wi);
+      return WordIdx(wi);
     }
 
-    const Word& word(WordI i) const {
-      BNG_VERIFY(i != WordI::kInvalid, "");
+    const Word& word(WordIdx i) const {
+      BNG_VERIFY(i != WordIdx::kInvalid, "");
       return words_buf[uint32_t(i)];
     }
 
@@ -222,15 +235,6 @@ namespace bng::word_db {
     }
 
   private:
-    uint32_t live_size_bytes() const {
-      uint32_t _live_size_bytes = 0;
-      for (auto s : size_bytes_by_letter) {
-        _live_size_bytes += s;
-      }
-      BNG_VERIFY(_live_size_bytes <= dict_buf.size(), "");
-      return _live_size_bytes;
-    }
-
     bool load_preproc(const char* path);
 
     void save_preproc(const char* path) const;
@@ -246,7 +250,7 @@ namespace bng::word_db {
     void cull_word(Word& word);
 
     static uint32_t header_size_bytes() {
-      return offsetof(WordDB, dict_buf) + DictBuf::header_size_bytes();
+      return offsetof(WordDB, dict_buf) + TextBuf::header_size_bytes();
     }
 
     uint32_t words_count() const {
@@ -258,19 +262,18 @@ namespace bng::word_db {
     }
 
   private:
-    DictCounts mem_counts;
-    WordI     words_by_letter[26] = {};
-    uint32_t  size_bytes_by_letter[26] = {};
+    TextStats mem_counts;
+    WordIdx words_by_letter[26] = {};
     // members here and before serialized in .pre files
-    DictBuf   dict_buf;
+    TextBuf dict_buf;
     Word* words_buf = nullptr;
     // members here and below do not get serialized.
-    DictCounts live_counts;
+    TextStats live_counts;
   };
 
   struct Solution {
-    WordI a = WordI::kInvalid;
-    WordI b = WordI::kInvalid;
+    WordIdx a = WordIdx::kInvalid;
+    WordIdx b = WordIdx::kInvalid;
   };
 
   struct SolutionSet {
@@ -291,7 +294,7 @@ namespace bng::word_db {
       count = capacity = 0;
     }
 
-    void add(WordI a, WordI b) {
+    void add(WordIdx a, WordIdx b) {
       BNG_VERIFY(count < capacity, "out of space");
       buf[count++] = Solution{a, b};
     }
