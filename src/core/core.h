@@ -57,7 +57,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_LOGI(FMT, ...) \
   do { \
     char log_line[1024]; \
-    sprintf_s(log_line, sizeof(log_line), "(%d): " #FMT "\n", __LINE__, ##__VA_ARGS__); \
+    sprintf_s(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
     BNG_PUTI(bng::core::log::basename(__FILE__)); \
     BNG_PUTI(log_line); fflush(stdout); \
   } while(0)
@@ -65,7 +65,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_LOGE(FMT, ...) \
   do { \
     char log_line[1024]; \
-    sprintf_s(log_line, sizeof(log_line), "(%d): " #FMT "\n", __LINE__, ##__VA_ARGS__); \
+    sprintf_s(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
     BNG_PUTE(bng::core::log::basename(__FILE__)); \
     BNG_PUTE(log_line); fflush(stderr); \
   } while(0)
@@ -82,7 +82,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
   do { \
     auto check_fail = !(COND); \
     if (check_fail) { \
-      BNG_LOGE(#COND " is false. " #FMT, ##__VA_ARGS__); \
+      BNG_LOGE(#COND " is false. " FMT, ##__VA_ARGS__); \
       assert(false); \
     } \
   } while(0)
