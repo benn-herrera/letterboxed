@@ -214,7 +214,7 @@ namespace bng::word_db {
 
     WordIdx word_i(const Word& w) const {
       auto wi = uint32_t(&w - words_buf);
-      BNG_VERIFY(wi < mem_counts.total_count(), "");
+      BNG_VERIFY(wi < words_count(), "");
       return WordIdx(wi);
     }
 

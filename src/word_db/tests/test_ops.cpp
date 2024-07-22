@@ -104,8 +104,8 @@ BNG_END_TEST()
 
 BNG_BEGIN_TEST(load_list) {
 	write_word_list();
-	//WordDB db("word_list.txt");
-	//BT_CHECK(db);
+	WordDB db("word_list.txt");
+	BT_CHECK(db);
 	BT_CHECK(true);
 }
 
