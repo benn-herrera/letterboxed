@@ -92,7 +92,7 @@ namespace bng::test {
   };
 
  # define BNG_BEGIN_TEST(N) \
-     auto test_##N##__LINE__ = bng::test::Test(#N, [](bng::test::Test* _t_)
+     auto test_##N = bng::test::Test(#N, [](bng::test::Test* _t_)
 # define BNG_END_TEST() \
      );
 
