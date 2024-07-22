@@ -10,8 +10,9 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  Word sides[4];
   uint32_t all_letters = 0;
+
+  WordDB::SideSet sides;
 
   // initialize puzzle conditions.
   {
@@ -39,8 +40,8 @@ int main(int argc, char** argv) {
         print_err();
         return 1;
       }
-      auto& side = sides[i - 1];      
-      side.read_str(side_str, side_str);
+      auto& side = sides[i - 1];
+      side = Word(side_str);
       if (side.letter_count != 3 || bool(all_letters & side.letters)) {
         print_err();
         return 1;
@@ -92,30 +93,7 @@ int main(int argc, char** argv) {
   // eliminate non-candiates.
   wordDB.cull(sides);
 
-  SolutionSet solutions(wordDB.size() / 2);
-
-  // run through all letters used in the puzzle
-  for (uint32_t ali = 0; ali < 26; ++ali) {
-    const auto alb = uint32_t(1u << ali);
-    if (!(alb & all_letters)) {
-      continue;
-    }
-
-    // run through all words starting with this letter - these are candidateA
-    for (auto wpa = wordDB.first_word(ali); *wpa; ++wpa) {
-      // run through all words starting with the last letter of candidateA - these are candidateB
-      const auto bli = wordDB.last_letter_idx(*wpa);
-      for (auto wpb = wordDB.first_word(bli); *wpb; ++wpb) {
-        const auto hit_letters = wpa->letters | wpb->letters;
-        if (hit_letters == all_letters) {
-          solutions.add(wordDB.word_i(*wpa), wordDB.word_i(*wpb));
-        }
-      }
-    }
-
-    // sort shortest to longest.
-    solutions.sort(wordDB);
-  }
+  auto solutions = wordDB.solve(sides);
 
   const auto solution_ms = solution_timer.elapsed_ms();
   const auto total_ms = total_timer.elapsed_ms();

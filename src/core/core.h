@@ -13,6 +13,9 @@
 # if !defined(chdir)
 #   define chdir _chdir
 # endif
+# if !defined(unlink)
+#   define unlink _unlink
+# endif
 # pragma warning( disable : 4514 5045 )
 # if defined(BNG_DEBUG)
 extern "C" { __declspec(dllimport) void __stdcall OutputDebugStringA(const char*); }

@@ -6,6 +6,7 @@ namespace bng::word_db {
 
 
   class TextBuf;
+  class WordDB;
 
 
   struct TextStats {
@@ -51,6 +52,10 @@ namespace bng::word_db {
     uint64_t is_dead : 1 = 0;
 
     Word() = default;
+
+    explicit Word(const char* str) {
+      read_str(str, str);
+    }
 
     Word(const Word& rhs, uint32_t new_begin) {
       *this = rhs;
@@ -162,27 +167,54 @@ namespace bng::word_db {
   enum class WordIdx : uint32_t { kInvalid = ~0u };
 
 
+  struct Solution {
+    WordIdx a = WordIdx::kInvalid;
+    WordIdx b = WordIdx::kInvalid;
+  };
+
+
+  struct SolutionSet {
+    BNG_DECL_NO_COPY(SolutionSet);
+
+    Solution* buf = nullptr;
+    uint32_t count = 0;
+    uint32_t capacity = 0;
+
+    explicit SolutionSet(uint32_t c = 0) {
+      if (c) {
+        capacity = c;
+        buf = new Solution[c];
+      }
+    }
+
+    ~SolutionSet() {
+      delete[] buf;
+      buf = nullptr;
+      count = capacity = 0;
+    }
+
+    void add(WordIdx a, WordIdx b) {
+      BNG_VERIFY(count < capacity, "out of space");
+      buf[count++] = Solution{ a, b };
+    }
+
+    void sort(const WordDB& wordDB);
+  };
+
+
   class WordDB {
   public:
     BNG_DECL_NO_COPY(WordDB);
 
     using SideSet = Word[4];
 
-    WordDB(const char* path = nullptr) {
-      memset(words_by_letter, 0xff, sizeof(words_by_letter));
-      if (path) {
-        load(path);
-      }
-    }
+    explicit WordDB(const char* path = nullptr);
 
-    ~WordDB() {
-      delete words_buf;
-      words_buf = nullptr;
-    }
+    ~WordDB();
 
     uint32_t size() const {
-      BNG_VERIFY(mem_counts.total_count() == live_counts.total_count(), "");
-      return live_counts.total_count();
+      BNG_VERIFY(mem_stats.total_count() == live_stats.total_count(), "");
+      return live_stats.total_count();
     }
 
     operator bool() const {
@@ -199,17 +231,29 @@ namespace bng::word_db {
 
     void cull(const SideSet& sides);
 
+    SolutionSet solve(const SideSet& sides) const;
+
+    bool is_equivalent(const WordDB& rhs) const;
+
+    const TextStats& get_text_stats() const {
+      return live_stats;
+    }
+
+    const TextBuf& get_text_buf() {
+      return text_buf;
+    }
+
     // format example: printf("%.*s", w.length, word_db.str(w));
     const char* str(const Word& w) const {
-      return dict_buf.ptr(w);
+      return text_buf.ptr(w);
     }
 
     uint32_t first_letter_idx(const Word& w) const {
-      return Word::letter_to_idx(dict_buf.ptr(w)[0]);
+      return Word::letter_to_idx(text_buf.ptr(w)[0]);
     }
 
     uint32_t last_letter_idx(const Word& w) const {
-      return Word::letter_to_idx(dict_buf.ptr(w)[(w.length - 1)]);
+      return Word::letter_to_idx(text_buf.ptr(w)[(w.length - 1)]);
     }
 
     WordIdx word_i(const Word& w) const {
@@ -229,7 +273,7 @@ namespace bng::word_db {
     }
 
     const Word* last_word(uint32_t letter_i) const {
-      auto pword = first_word(letter_i) + mem_counts.word_counts[letter_i] - 1;
+      auto pword = first_word(letter_i) + mem_stats.word_counts[letter_i] - 1;
       BNG_VERIFY(!*(pword + 1), "word list for letter not null terminated.");
       return pword;
     }
@@ -250,55 +294,36 @@ namespace bng::word_db {
     void cull_word(Word& word);
 
     static uint32_t header_size_bytes() {
-      return offsetof(WordDB, dict_buf) + TextBuf::header_size_bytes();
+      return offsetof(WordDB, text_buf) + TextBuf::header_size_bytes();
     }
 
     uint32_t words_count() const {
-      return uint32_t(mem_counts.total_count() + 26);
+      return uint32_t(mem_stats.total_count() + 26);
     }
 
     uint32_t words_size_bytes() const {
       return uint32_t(sizeof(Word) * words_count());
     }
 
+    void clear_words_by_letter();
+
+    Word& word_rw(WordIdx i) {
+      BNG_VERIFY(i != WordIdx::kInvalid, "");
+      return words_buf[uint32_t(i)];
+    }
+
+    Word* first_word_rw(uint32_t letter_i) {
+      BNG_VERIFY(letter_i < 26, "");
+      return &word_rw(words_by_letter[letter_i]);
+    }
+
   private:
-    TextStats mem_counts;
+    TextStats mem_stats;
     WordIdx words_by_letter[26] = {};
     // members here and before serialized in .pre files
-    TextBuf dict_buf;
+    TextBuf text_buf;
     Word* words_buf = nullptr;
     // members here and below do not get serialized.
-    TextStats live_counts;
-  };
-
-  struct Solution {
-    WordIdx a = WordIdx::kInvalid;
-    WordIdx b = WordIdx::kInvalid;
-  };
-
-  struct SolutionSet {
-    Solution* buf = nullptr;
-    uint32_t count = 0;
-    uint32_t capacity = 0;
-
-    SolutionSet(uint32_t c = 0) {
-      if (c) {
-        capacity = c;
-        buf = new Solution[c];
-      }
-    }
-
-    ~SolutionSet() {
-      delete[] buf;
-      buf = nullptr;
-      count = capacity = 0;
-    }
-
-    void add(WordIdx a, WordIdx b) {
-      BNG_VERIFY(count < capacity, "out of space");
-      buf[count++] = Solution{a, b};
-    }
-
-    void sort(const WordDB& wordDB);
+    TextStats live_stats;
   };
 } // namespace bng::word_db
