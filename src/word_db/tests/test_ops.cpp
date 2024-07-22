@@ -120,7 +120,7 @@ BNG_BEGIN_TEST(load_and_solve) {
 	}
 	{
 		WordDB db("words.pre");
-		(uint32_t)unlink("words.pre");
+		(void)unlink("words.pre");
 		WordDB::SideSet sides = { 
 			Word(puzzle_sides[0]), 
 			Word(puzzle_sides[1]), 

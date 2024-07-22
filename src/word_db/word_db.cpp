@@ -380,7 +380,7 @@ namespace bng::word_db {
 
   WordDB WordDB::clone_packed() const {
     const uint32_t live_size = live_stats.total_size_bytes();
-    const uint32_t live_count = live_stats.total_count();
+    const uint32_t live_count = live_stats.total_count(); (void)live_count;
     BNG_VERIFY(
       *this &&
       live_size < text_buf.capacity() &&
