@@ -110,8 +110,34 @@ BNG_END_TEST()
 BNG_BEGIN_TEST(load_and_solve) {
 	write_word_list();
 	{
+		WordDB db;
+		BT_CHECK(!db);
+		BT_CHECK(!db.load("foo.txt"));
+		BT_CHECK(!db);
+		BT_CHECK(!db.load("foo.pre"));
+		BT_CHECK(!db);
+
+		WordDB db2("foo.txt");
+		BT_CHECK(!db2);
+
+		WordDB db3("foo.pre");
+		BT_CHECK(!db3);
+	}
+
+	{
 		WordDB db("word_list.txt");
 		BT_CHECK(db);
+
+		for (uint32_t i = 0; i < 26; ++i) {
+			if (db.get_text_stats().word_counts[i]) {
+				BT_CHECK(db.first_letter_idx(*db.first_word(i)) == i);
+				BT_CHECK(db.first_letter_idx(*db.last_word(i)) == i);
+			}
+			else {
+				BT_CHECK(!db.first_word(i));
+			}
+		}
+
 		db.save("words.pre");
 		BT_CHECK(File("words.pre", "rb"));
 		WordDB db2("words.pre");
@@ -119,8 +145,20 @@ BNG_BEGIN_TEST(load_and_solve) {
 		BT_CHECK(db.is_equivalent(db2));
 	}
 	{
-		WordDB db("words.pre");
+		WordDB db;
+		BT_CHECK(db.load("words.pre"));
 		(void)unlink("words.pre");
+
+		for (uint32_t i = 0; i < 26; ++i) {
+			if (db.get_text_stats().word_counts[i]) {
+				BT_CHECK(db.first_letter_idx(*db.first_word(i)) == i);
+				BT_CHECK(db.first_letter_idx(*db.last_word(i)) == i);
+			}
+			else {
+				BT_CHECK(!db.first_word(i));
+			}
+		}
+
 		WordDB::SideSet sides = { 
 			Word(puzzle_sides[0]), 
 			Word(puzzle_sides[1]), 
@@ -155,7 +193,7 @@ BNG_BEGIN_TEST(load_and_solve) {
 
 			uint32_t live_letters = 0;
 			for (uint32_t i = 0, li = 0; li < live_count; ++i) {
-				const auto& w = db.word(WordIdx(i));
+				const auto& w = *db.word(WordIdx(i));
 				if (!w) {
 					continue;
 				}
@@ -176,8 +214,8 @@ BNG_BEGIN_TEST(load_and_solve) {
 		BT_CHECK(solutions.count == 1);
 
 		auto ps = solutions.buf;
-		auto& a = db.word(ps->a);
-		auto& b = db.word(ps->b);
+		auto& a = *db.word(ps->a);
+		auto& b = *db.word(ps->b);
 		auto sa = db.str(a); (void)sa;
 		auto sb = db.str(b); (void)sb;
 

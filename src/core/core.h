@@ -7,6 +7,8 @@
 #include <string.h>
 #include <assert.h>
 #include <chrono>
+#include <memory>
+#include <array>
 
 #if defined(BNG_IS_WINDOWS)
 # include <direct.h>
@@ -18,12 +20,16 @@
 # endif
 # pragma warning( disable : 4514 5045 )
 # if defined(BNG_DEBUG)
-extern "C" { __declspec(dllimport) void __stdcall OutputDebugStringA(const char*); }
-#   define BNG_PUTI(S) do { const char* s = S; fputs(s, stdout); OutputDebugStringA(s); } while(0)
-#   define BNG_PUTE(S) do { const char* s = S; fputs(s, stderr); OutputDebugStringA(s); } while(0)
+extern "C" { 
+  __declspec(dllimport) void __stdcall OutputDebugStringA(const char*); 
+  __declspec(dllimport) void DebugBreak();
+}
+#   define BNG_PUTI(S) do { const char* _s = S; fputs(_s, stdout); OutputDebugStringA(_s); } while(0)
+#   define BNG_PUTE(S) do { const char* _s = S; fputs(_s, stderr); OutputDebugStringA(_s); } while(0)
 # endif
 #else
 # include <unistd.h>
+# include <signal.h>
 using rsize_t = uint32_t;
 inline void strcpy_s(char* dst, rsize_t max_count, const char* src) {
   (void)max_count;
@@ -37,8 +43,8 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #endif
 
 #if !defined(BNG_PUTI)
-# define BNG_PUTI(S) do { const char* s = S; fputs(s, stdout); } while(0)
-# define BNG_PUTE(S) do { const char* s = S; fputs(s, stderr); } while(0)
+# define BNG_PUTI(S) do { const char* _s = S; fputs(_s, stdout); } while(0)
+# define BNG_PUTE(S) do { const char* _s = S; fputs(_s, stderr); } while(0)
 #endif
 
 #define BNG_DECL_NO_COPY(CLASS) \
@@ -86,7 +92,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
     auto check_fail = !(COND); \
     if (check_fail) { \
       BNG_LOGE(#COND " is false. " FMT, ##__VA_ARGS__); \
-      assert(false); \
+      bng::core::dtl::verify_fail(); \
     } \
   } while(0)
 #else
@@ -94,6 +100,15 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #endif
 
 namespace bng::core {
+  namespace dtl {
+    inline void verify_fail() {
+#if defined(BNG_IS_WINDOWS) && defined(BNG_DEBUG)
+      DebugBreak();
+#elif defined(BNG_DEBUG)
+      raise(SIGTRAP);
+#endif
+    }
+  }
   namespace log {
     inline const char* basename(const char* file) {
       for (const char* p = file; *p; p++) {
@@ -112,20 +127,24 @@ namespace bng::core {
 
     enum class Units : uint32_t { ns, us, ms, s };
 
-    ScopedTimer() 
-      : start(clock::now())
+    explicit ScopedTimer(double* elapsed_out = nullptr, Units units = Units::ms)
+      : start(clock::now()), elapsed_out(elapsed_out), units(units) 
     {}
 
-    explicit ScopedTimer(const char* file, uint32_t line, const char* msg, Units units = Units::ms)
+    ScopedTimer(const char* file, uint32_t line, const char* msg, Units units = Units::ms)
       : start(clock::now()), msg(msg), file(log::basename(file)), units(units), line(line)
     {
     }
 
     ~ScopedTimer() {
+      const double elapsed_time = elapsed(units);
+      if (elapsed_out) {
+        *elapsed_out = elapsed_time;
+      }
       if (msg) {
         char time_buf[64];
         char num_buf[32];
-        sprintf_s(time_buf, sizeof(time_buf), " [%0.3lf%s]\n", elapsed(units), units_sfx(units));
+        sprintf_s(time_buf, sizeof(time_buf), " [%0.3lf%s]\n", elapsed_time, units_sfx(units));
         sprintf_s(num_buf, sizeof(num_buf), "(%d): ", line);
         BNG_PUTI(file);
         BNG_PUTI(num_buf);
@@ -174,6 +193,7 @@ namespace bng::core {
     const clock::time_point start;
     const char* msg = nullptr;
     const char* file = nullptr;
+    double* elapsed_out = nullptr;
     Units units = Units::ms;
     uint32_t line = 0;
   };

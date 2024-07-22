@@ -65,6 +65,10 @@ namespace bng::word_db {
     uint32_t read_str(const char* buf_start, const char* p);
     inline uint32_t read_str(const TextBuf& buf, const char* p);
 
+    void get_letters_str(char* pout) const {
+      letters_to_str(letters, pout);
+    }
+
     operator bool() const {
       return !!length;
     }
@@ -93,6 +97,8 @@ namespace bng::word_db {
       BNG_VERIFY(i < 26, "");
       return 1u << i;
     }
+
+    static void letters_to_str(uint64_t letter_bits, char* pout);
   };
 
 
@@ -206,7 +212,7 @@ namespace bng::word_db {
   public:
     BNG_DECL_NO_COPY(WordDB);
 
-    using SideSet = Word[4];
+    using SideSet = std::array<Word, 4>;
 
     explicit WordDB(const char* path = nullptr);
 
@@ -258,18 +264,17 @@ namespace bng::word_db {
 
     WordIdx word_i(const Word& w) const {
       auto wi = uint32_t(&w - words_buf);
-      BNG_VERIFY(wi < words_count(), "");
+      BNG_VERIFY(wi < words_count(), "word not in buffer!");
       return WordIdx(wi);
     }
 
-    const Word& word(WordIdx i) const {
-      BNG_VERIFY(i != WordIdx::kInvalid, "");
-      return words_buf[uint32_t(i)];
+    const Word* word(WordIdx i) const {
+      return (i != WordIdx::kInvalid) ? (words_buf + uint32_t(i)) : nullptr;
     }
 
     const Word* first_word(uint32_t letter_i) const {
-      BNG_VERIFY(letter_i < 26, "");
-      return &word(words_by_letter[letter_i]);
+      BNG_VERIFY(letter_i < 26, "invalid letter index");
+      return word(words_by_letter[letter_i]);
     }
 
     const Word* last_word(uint32_t letter_i) const {

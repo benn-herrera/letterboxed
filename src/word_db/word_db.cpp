@@ -3,27 +3,6 @@
 
 namespace bng::word_db {
   //
-  // DictBuf
-  // 
-
-  TextBuf::TextBuf(uint32_t sz) {
-    if (sz) {
-      _text = new char[sz + 2];
-      _capacity = sz;
-      _text[0] = _text[sz] = _text[sz + 1] = 0;
-    }
-  }
-
-  Word TextBuf::append(const TextBuf& src, const Word& w) {
-    BNG_VERIFY(_size + w.length <= _capacity, "");
-    auto new_word = Word(w, _size);
-    memcpy(_text + _size, src.ptr(w), w.length);
-    _size += uint32_t(w.length);
-    return new_word;
-  }
-
-
-  //
   // Word
   //
 
@@ -46,6 +25,37 @@ namespace bng::word_db {
     return uint32_t(p - b);
   }
 
+  void Word::letters_to_str(uint64_t letter_bits, char* pout) {
+    for (uint32_t li = 0; letter_bits && li < 26; ++li) {
+      const auto lb = (1ull << li);
+      if ((lb & letter_bits)) {
+        *pout++ = idx_to_letter(li);
+        letter_bits ^= lb;
+      }
+    }
+    *pout = 0;
+  }
+
+
+  //
+  // TextBuf
+  // 
+
+  TextBuf::TextBuf(uint32_t sz) {
+    if (sz) {
+      _text = new char[sz + 2];
+      _capacity = sz;
+      _text[0] = _text[sz] = _text[sz + 1] = 0;
+    }
+  }
+
+  Word TextBuf::append(const TextBuf& src, const Word& w) {
+    BNG_VERIFY(_size + w.length <= _capacity, "");
+    auto new_word = Word(w, _size);
+    memcpy(_text + _size, src.ptr(w), w.length);
+    _size += uint32_t(w.length);
+    return new_word;
+  }
 
   //
   // SolutionSet
@@ -57,9 +67,9 @@ namespace bng::word_db {
       buf + count,
       [&wordDB](auto& lhs, auto& rhs) -> bool {
         return
-          (wordDB.word(lhs.a).length + wordDB.word(lhs.b).length)
+          (wordDB.word(lhs.a)->length + wordDB.word(lhs.b)->length)
           <
-          (wordDB.word(rhs.a).length + wordDB.word(rhs.b).length);
+          (wordDB.word(rhs.a)->length + wordDB.word(rhs.b)->length);
       }
     );
   }
@@ -82,40 +92,27 @@ namespace bng::word_db {
   }
 
   bool WordDB::load(const char* path) {
-    BNG_VERIFY(path && *path, "");
-    auto p = path + (strlen(path) - 4);
-    const auto ext =
-      (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | uint32_t(p[3]);
-    switch (ext) {
-    case '.pre': load_preproc(path); break;
-    case '.txt': load_word_list(path); break;
-    default:
-      BNG_VERIFY(false, "unknown extension. must be .txt or .pre");
-      return false;
-    }
+    BNG_VERIFY(path && *path, "invalid path");
+    BNG_VERIFY(!*this, "already loaded.");
 
-    for (uint32_t i = 0; i < 26; ++i) {
-      if (live_stats.word_counts[i]) {
-        BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "inconsistent data");
-        BNG_VERIFY(first_letter_idx(*last_word(i)) == i, "inconsistent data");
-      }
-      else {
-        BNG_VERIFY(words_by_letter[i] == WordIdx::kInvalid, "inconsitent metadata");
-      }
+    auto ext = path + (strlen(path) - 4);
+    if (!strcmp(ext, ".pre")) {
+      return load_preproc(path);
     }
-
-    return true;
+    if (!strcmp(ext, ".txt")) {
+      return load_word_list(path);
+    }
+    BNG_VERIFY(false, "unknown extension. must be .txt or .pre");
+    return false;
   }
 
   void WordDB::save(const char* path) {
-    BNG_VERIFY(path && *path, "");
-    auto p = path + (strlen(path) - 4);
-    const auto ext =
-      (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | uint32_t(p[3]);
-    switch (ext) {
-    case '.pre': return save_preproc(path);
+    BNG_VERIFY(path && *path, "invalid path");
+    auto ext = path + (strlen(path) - 4);
+    if (!strcmp(ext, ".pre")) {
+      return save_preproc(path);
     }
-    BNG_VERIFY(false, "extension must be .pre");
+    BNG_VERIFY(false, "extension %s is invalid, must be .pre", ext);
   }
 
   void WordDB::cull(const SideSet& sides) {
@@ -170,38 +167,49 @@ namespace bng::word_db {
   }
 
   SolutionSet WordDB::solve(const SideSet& sides) const {
-    SolutionSet solutions(size() / 2);
-
     uint32_t all_letters = 0;
+    uint32_t all_letter_count = 0;
+    char letters_str[27] = {};
+
     for (const auto& s : sides) {
+      if (s.letter_count != 3) {
+        auto si = uint32_t(intptr_t(&s - sides.front()));
+        s.get_letters_str(letters_str);
+        BNG_PRINT("side[%d] %s is not 3 letters.\n",
+          si + 1, letters_str);
+        return SolutionSet();
+      }
       all_letters |= uint32_t(s.letters);
     }
-    // TODO: verify unique letter count is 12
+    for (auto lbits = all_letters; lbits; ++all_letter_count, lbits &= (lbits - 1))
+      ;
+    if (all_letter_count != 12) {
+      Word::letters_to_str(all_letters, letters_str);
+      BNG_PRINT("puzzle must have 12 unique letters, not %d (%s)\n",
+        all_letter_count, letters_str);
+      return SolutionSet();
+    }
+
+    SolutionSet solutions(size() / 2);
 
     // run through all letters used in the puzzle
     for (uint32_t ali = 0; ali < 26; ++ali) {
       const auto alb = uint32_t(1u << ali);
-      if (!(alb & all_letters) || words_by_letter[ali] == WordIdx::kInvalid) {
+      if (!(alb & all_letters)) {
         continue;
       }
 
       // run through all words starting with this letter - these are candidateA
-      for (auto wpa = first_word(ali); *wpa; ++wpa) {
+      for (auto wpa = first_word(ali); wpa && *wpa; ++wpa) {
         // run through all words starting with the last letter of candidateA - these are candidateB
         const auto bli = last_letter_idx(*wpa);
-        if (words_by_letter[bli] == WordIdx::kInvalid) {
-          continue;
-        }
-        for (auto wpb = first_word(bli); *wpb; ++wpb) {
+        for (auto wpb = first_word(bli); wpb && *wpb; ++wpb) {
           const auto hit_letters = wpa->letters | wpb->letters;
           if (hit_letters == all_letters) {
             solutions.add(word_i(*wpa), word_i(*wpb));
           }
         }
       }
-
-      // sort shortest to longest.
-      solutions.sort(*this);
     }
 
     return solutions;
@@ -221,8 +229,7 @@ namespace bng::word_db {
   //
 
   bool WordDB::load_preproc(const char* path) {
-    BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "");
-    *this = WordDB();
+    BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "invalid path");
 
     if (auto fin = File(path, "rb")) {
       if (fread(this, header_size_bytes(), 1, fin) != 1) {
