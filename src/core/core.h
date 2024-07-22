@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <string.h>
+#include <float.h>
 #include <assert.h>
 #include <chrono>
 #include <memory>
