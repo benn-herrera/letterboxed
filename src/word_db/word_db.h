@@ -284,11 +284,11 @@ namespace bng::word_db {
     }
 
   private:
-    bool load_preproc(const char* path);
+    void load_preproc(const char* path);
 
     void save_preproc(const char* path) const;
 
-    bool load_word_list(const char* path);
+    void load_word_list(const char* path);
 
     void process_word_list();
 

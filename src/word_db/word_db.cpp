@@ -97,13 +97,15 @@ namespace bng::word_db {
 
     auto ext = path + (strlen(path) - 4);
     if (!strcmp(ext, ".pre")) {
-      return load_preproc(path);
+      load_preproc(path);
     }
-    if (!strcmp(ext, ".txt")) {
-      return load_word_list(path);
+    else if (!strcmp(ext, ".txt")) {
+      load_word_list(path);
     }
-    BNG_VERIFY(false, "unknown extension. must be .txt or .pre");
-    return false;
+    else {
+      BNG_VERIFY(false, "%s has unknown extension. must be .txt or .pre", path);
+    }
+    return *this;
   }
 
   void WordDB::save(const char* path) {
@@ -228,28 +230,27 @@ namespace bng::word_db {
   // WordDB Private
   //
 
-  bool WordDB::load_preproc(const char* path) {
+  void WordDB::load_preproc(const char* path) {
     BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "invalid path");
 
     if (auto fin = File(path, "rb")) {
       if (fread(this, header_size_bytes(), 1, fin) != 1) {
         *this = WordDB();
-        return false;
+        return;
       }
       live_stats = mem_stats;
 
       words_buf = new Word[words_count()];
       if (fread(words_buf, words_size_bytes(), 1, fin) != 1) {
-        BNG_VERIFY(false, "");
+        BNG_VERIFY(false, "failed reading words buffer from %s", path);
       }
 
       text_buf = TextBuf(text_buf.capacity());
       text_buf.set_size(text_buf.capacity());
       if (fread(text_buf.begin(), text_buf.capacity(), 1, fin) != 1) {
-        BNG_VERIFY(false, "");
+        BNG_VERIFY(false, "failed reading text buffer from %s", path);
       }
     }
-    return *this;
   }
 
   void WordDB::save_preproc(const char* path) const {
@@ -269,7 +270,7 @@ namespace bng::word_db {
   }
 
 
-  bool WordDB::load_word_list(const char* path) {
+  void WordDB::load_word_list(const char* path) {
     text_buf = TextBuf();
 
     if (auto dict_file = File(path, "r")) {
@@ -281,13 +282,12 @@ namespace bng::word_db {
         }
       }
       else {
-        BNG_VERIFY(false, "");
+        BNG_VERIFY(false, "failed reading %s", path);
+        return;
       }
+
+      process_word_list();
     }
-
-    process_word_list();
-
-    return true;
   }
 
   void WordDB::process_word_list() {

@@ -200,7 +200,7 @@ BNG_BEGIN_TEST(load_and_solve) {
 				BT_CHECK(!w.is_dead);
 				live_letters |= uint32_t(w.letters);
 				++li;
-				printf("%.*s\n", uint32_t(w.length), db.get_text_buf().ptr(w));
+				// printf("%.*s\n", uint32_t(w.length), db.get_text_buf().ptr(w));
 			}
 
 			const auto puzzle_letters = uint32_t(sides[0].letters | sides[1].letters | sides[2].letters | sides[3].letters);
