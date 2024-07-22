@@ -10,7 +10,7 @@
 
 ## Usage
 * letterboxed [side1] [side2] [side3] [side4]
-    e.g. letterboxed dng ruh iae ftm
+    e.g. letterboxed vrq wue isl dmo
 * Produces list of all potential two word solutions sorted shortest to longest
 
 ## Third Party Resources
