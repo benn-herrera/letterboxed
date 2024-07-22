@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
   using namespace bng::word_db;
 
   if (argc != 5) {
-    BNG_PRINT("usage: <side> <side> <side> <side>\n  e.g. letterboxed abc def ghi jkl\n");
+    BNG_PRINT("usage: <side> <side> <side> <side>\n  e.g. letterboxed vrq wue isl dmo\n");
     return 1;
   }
 
@@ -15,13 +15,34 @@ int main(int argc, char** argv) {
 
   // initialize puzzle conditions.
   {
+    static auto print_err = [&argv]() {
+      BNG_PRINT("%s %s %s %s are not 4 sides of 3 unique letters.\n",
+        argv[1], argv[2], argv[3], argv[4]);
+      };
+    auto copy_side = [](const char* s, char* sout) {
+      auto sp = s;
+      for (; *sp; ++sp, ++sout) {
+        const auto si = uint32_t(sp - s);
+        if (si >= 3) {
+          return false;
+        }
+        *sout = char(tolower(*sp));
+        if (*sout < 'a' || *sout > 'z') {
+          return false;
+        }
+      }
+      return uint32_t(sp - s) == 3;
+      };
+    char side_str[4] = {};
     for (uint32_t i = 1; i < 5; ++i) {
-      const char* side_str = argv[i];
-      auto& side = sides[i - 1];
+      if (!copy_side(argv[i], side_str)) {
+        print_err();
+        return 1;
+      }
+      auto& side = sides[i - 1];      
       side.read_str(side_str, side_str);
-      if (side.length != 3 || side.letter_count != 3 || bool(all_letters & side.letters)) {
-        BNG_PRINT("%s %s %s %s are not 4 sides of 3 unique letters.\n",
-          argv[1], argv[2], argv[3], argv[4]);
+      if (side.letter_count != 3 || bool(all_letters & side.letters)) {
+        print_err();
         return 1;
       }
       all_letters |= side.letters;

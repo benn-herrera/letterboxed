@@ -90,9 +90,18 @@ namespace bng::test {
     static Test*& last() { static Test* t = nullptr; return t; }
     static int& test_count() { static int count = 0; return count; }    
   };
-  #define BNG_TEST(N, BODY) \
-    auto test_##N##__LINE__ = bng::test::Test(#N, [](bng::test::Test* _t_) BODY)
-  #define BT_CHECK(V) do { \
+
+ # define BNG_BEGIN_TEST(N) \
+     auto test_##N##__LINE__ = bng::test::Test(#N, [](bng::test::Test* _t_)
+# define BNG_END_TEST() \
+     );
+
+ # define BNG_TEST(N, BODY) \
+    BNG_BEGIN_TEST(N) \
+    BODY \
+    BNG_END_TEST()
+
+ # define BT_CHECK(V) do { \
     _t_->check_count++; \
     if (!(V)) { \
       _t_->err_count++; \

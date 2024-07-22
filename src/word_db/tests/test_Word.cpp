@@ -3,7 +3,7 @@
 
 using namespace bng::word_db;
 
-BNG_TEST(test_letters, {
+BNG_BEGIN_TEST(test_letters) {
 	BT_CHECK(Word::letter_to_idx('a') == 0);
 	BT_CHECK(Word::letter_to_idx('n') == 13);
 	BT_CHECK(Word::letter_to_idx('z') == 25);
@@ -15,9 +15,11 @@ BNG_TEST(test_letters, {
 	BT_CHECK(Word::idx_to_letter(0)  == 'a');
 	BT_CHECK(Word::idx_to_letter(13) == 'n');
 	BT_CHECK(Word::idx_to_letter(25) == 'z');
-});
+}
+BNG_END_TEST()
 
-BNG_TEST(test_word, {
+
+BNG_BEGIN_TEST(test_word) {
 	{
 		const char* txt = "xxxacefc";
 		Word word;
@@ -79,4 +81,6 @@ BNG_TEST(test_word, {
 		// too long
 		BT_CHECK(word.is_dead == 1);
 	}
-});
+}
+BNG_END_TEST()
+

@@ -82,7 +82,7 @@ namespace bng::word_db {
     }
 
     for (uint32_t i = 0; i < 26; ++i) {
-      if (stats.word_counts[i]) {
+      if (live_counts.word_counts[i]) {
         BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "inconsistent data");
         BNG_VERIFY(first_letter_idx(*last_word(i)) == i, "inconsistent data");
       }
@@ -117,7 +117,7 @@ namespace bng::word_db {
       // letter not in puzzle
       if (!(lb & all_letters)) {
         words_by_letter[li] = WordI::kInvalid;
-        stats.word_counts[li] = 0;
+        live_counts.word_counts[li] = 0;
         continue;
       }
 
@@ -157,11 +157,13 @@ namespace bng::word_db {
   bool WordDB::load_preproc(const char* path) {
     BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "");
     *this = WordDB();
+
     if (auto fin = File(path, "rb")) {
       if (fread(this, header_size_bytes(), 1, fin) != 1) {
         *this = WordDB();
         return false;
       }
+      live_counts = mem_counts;
 
       words_buf = new Word[words_count()];
       if (fread(words_buf, words_size_bytes(), 1, fin) != 1) {
@@ -170,7 +172,7 @@ namespace bng::word_db {
 
       dict_buf = DictBuf(dict_buf.capacity());
       dict_buf.set_size(dict_buf.capacity());
-      if (fread(dict_buf.front(), dict_buf.capacity(), 1, fin) != 1) {
+      if (fread(dict_buf.begin(), dict_buf.capacity(), 1, fin) != 1) {
         BNG_VERIFY(false, "");
       }
     }
@@ -188,7 +190,7 @@ namespace bng::word_db {
     if (fwrite(words_buf, words_size_bytes(), 1, fout) != 1) {
       BNG_VERIFY(false, "");
     }
-    if (fwrite(dict_buf.front(), dict_buf.size(), 1, fout) != 1) {
+    if (fwrite(dict_buf.begin(), dict_buf.size(), 1, fout) != 1) {
       BNG_VERIFY(false, "");
     }
   }
@@ -199,9 +201,9 @@ namespace bng::word_db {
 
     if (auto dict_file = File(path, "r")) {
       dict_buf = DictBuf(dict_file.size_bytes());
-      if (size_t read_count = fread(dict_buf.front(), 1, dict_buf.capacity(), dict_file.fp)) {
+      if (size_t read_count = fread(dict_buf.begin(), 1, dict_buf.capacity(), dict_file.fp)) {
         if (read_count < dict_buf.capacity()) {
-          memset(dict_buf.front() + read_count, 0, dict_buf.capacity() - read_count);
+          memset(dict_buf.begin() + read_count, 0, dict_buf.capacity() - read_count);
           dict_buf.set_size(uint32_t(read_count));
         }
       }
@@ -216,31 +218,29 @@ namespace bng::word_db {
   }
 
   void WordDB::process_word_list() {
-    collect_dict_stats();
-    BNG_VERIFY(dict_buf && stats, "");
+    mem_counts = dict_buf.collect_counts();
+    BNG_VERIFY(mem_counts, "");
 
     collate_words();
     *this = clone_packed();
   }
 
-  void WordDB::collect_dict_stats() {
-    BNG_VERIFY(dict_buf, "");
-    stats = DictStats{};
-    for (const char* p = dict_buf.front(); *p; ) {
+  DictCounts DictBuf::collect_counts() const {
+    BNG_VERIFY(*this, "");
+    auto stats = DictCounts{};
+   
+    for (const char* p = begin(); *p; ) {
       auto li = Word::letter_to_idx(*p);
       ++stats.word_counts[li];
       // catch out of order dictionary
-      BNG_VERIFY(!stats.word_counts[li + 1], "");
+      BNG_VERIFY(li == 25 || !stats.word_counts[li + 1], "");
       for (; !Word::is_end(p); ++p)
         ;
       for (; *p && Word::is_end(p); ++p)
         ;
     }
-    for (uint32_t i = 0; i < 26; ++i) {
-      // verify all letters populated
-      BNG_VERIFY(stats.word_counts[i], "");
-      stats.total_count += stats.word_counts[i];
-    }
+
+    return stats;
   }
 
   void WordDB::collate_words() {
@@ -253,7 +253,7 @@ namespace bng::word_db {
     uint32_t row_live_size_bytes = 0;
 
     memset(words_by_letter, 0xff, sizeof(words_by_letter));
-    const char* p = dict_buf.front();
+    const char* p = dict_buf.begin();
     for (; *p; ++wp) {
       BNG_VERIFY(dict_buf.in_capacity(p), "");
       auto li = Word::letter_to_idx(*p);
@@ -262,8 +262,8 @@ namespace bng::word_db {
           // null terminate
           *wp++ = Word();
           const auto row_total_count = uint32_t(wp - wp_row_start); (void)row_total_count;
-          BNG_VERIFY(row_total_count == stats.word_counts[li - 1] + 1, "");
-          stats.word_counts[li - 1] = row_live_count;
+          BNG_VERIFY(row_total_count == mem_counts.word_counts[li - 1] + 1, "");
+          live_counts.word_counts[li - 1] = row_live_count;
           size_bytes_by_letter[li - 1] = row_live_size_bytes;
           row_live_count = 0;
           row_live_size_bytes = 0;
@@ -279,19 +279,19 @@ namespace bng::word_db {
       }
     }
 
-    BNG_VERIFY(p == dict_buf.back(), "");
+    BNG_VERIFY(p == dict_buf.end(), "");
 
     {
       // null terminate
       *wp++ = Word();
       const auto row_total_count = uint32_t(wp - wp_row_start); (void)row_total_count;
-      BNG_VERIFY(row_total_count == stats.word_counts[25] + 1, "");
-      stats.word_counts[25] = row_live_count;
+      BNG_VERIFY(row_total_count == mem_counts.word_counts[25] + 1, "");
+      live_counts.word_counts[25] = row_live_count;
       size_bytes_by_letter[25] = row_live_size_bytes;
     }
 
     for (uint32_t i = 0; i < 26; ++i) {
-      if (stats.word_counts[i]) {
+      if (live_counts.word_counts[i]) {
         BNG_VERIFY(first_letter_idx(*first_word(i)) == i, "");
       }
       else {
@@ -307,24 +307,23 @@ namespace bng::word_db {
     auto li = first_letter_idx(word);
     BNG_VERIFY(size_bytes_by_letter[li] > word.length, "");
     size_bytes_by_letter[li] -= uint32_t(word.length + 1);
-    BNG_VERIFY(stats.word_counts[li], "");
-    --stats.word_counts[li];
+    BNG_VERIFY(live_counts.word_counts[li], "");
+    --live_counts.word_counts[li];
     word.is_dead = true;
   }
 
   WordDB WordDB::clone_packed() const {
     const uint32_t live_size = live_size_bytes();
-    const uint32_t live_count = live_word_count();
+    const uint32_t live_count = live_counts.total_count();
     BNG_VERIFY(
       *this &&
       live_size < dict_buf.capacity() &&
-      live_count < stats.total_count, "");
+      live_count < mem_counts.total_count(), "");
 
     WordDB out;
 
     out.dict_buf = DictBuf(live_size);
-    out.stats = stats;
-    out.stats.total_count = live_count;
+    out.mem_counts = out.live_counts = live_counts;
     memcpy(out.size_bytes_by_letter, size_bytes_by_letter, sizeof(size_bytes_by_letter));
     out.words_buf = new Word[out.words_count()];
 
@@ -332,7 +331,7 @@ namespace bng::word_db {
     uint32_t live_row_count = 0; (void)live_row_count;
 
     for (uint32_t li = 0; li < 26; ++li) {
-      if (!stats.word_counts[li]) {
+      if (!live_counts.word_counts[li]) {
         out.words_by_letter[li] = WordI::kInvalid;
         continue;
       }
@@ -346,15 +345,14 @@ namespace bng::word_db {
         }
       }
       const auto row_count = uint32_t(wpo - wpo_row_start); (void)row_count;
-      BNG_VERIFY(row_count == out.stats.word_counts[li], "");
+      BNG_VERIFY(row_count == out.live_counts.word_counts[li], "");
       // null terminate
       *wpo++ = Word();
       ++live_row_count;
     }
 
     const auto copy_count = uint32_t(wpo - out.words_buf); (void)copy_count;
-    BNG_VERIFY(out.live_word_count() == out.stats.total_count, "");
-    BNG_VERIFY(copy_count == out.stats.total_count + live_row_count, "");
+    BNG_VERIFY(copy_count == out.live_counts.total_count() + live_row_count, "");
 
     return out;
   }

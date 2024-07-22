@@ -5,6 +5,33 @@ namespace bng::word_db {
   using namespace core;
   struct Word;
 
+
+  struct DictCounts {
+    uint32_t word_counts[26] = {};
+
+    operator bool() const {
+      for (auto wc : word_counts) {
+        if (wc) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool operator!() const {
+      return bool(*this) == false;
+    }
+
+    uint32_t total_count() const {
+      uint32_t tc = 0;
+      for (auto wc : word_counts) {
+        tc += wc;
+      }
+      return tc;
+    }
+  };
+
+
   class DictBuf{
   public:
     BNG_DECL_NO_COPY(DictBuf);
@@ -13,25 +40,22 @@ namespace bng::word_db {
 
     Word append(const DictBuf& src, const Word& w);
 
-    bool in_capacity(const char* p) const {
-      return p < (_text + _capacity);
-    }
+    uint32_t capacity() const { return _capacity; }
+    uint32_t size() const { return _size; }
+    char* begin() { return _text; }
+    char* front() { return _text; }
+    const char* begin() const { return _text; }
+    const char* front() const { return _text; }
+    char* end() { return _text + _size; }
+    const char* end() const { return _text + _size; }
 
     bool in_size(const char* p) const {
       return p < (_text + _size);
     }
 
-    uint32_t capacity() const { return _capacity; }
-
-    uint32_t size() const { return _size; }
-
-    char* front() { return _text; }
-
-    const char* front() const { return _text; }
-
-    char* back() { return _text + _size; }
-
-    const char* back() const { return _text + _size; }
+    bool in_capacity(const char* p) const {
+      return p < (_text + _capacity);
+    }
 
     // format example: printf("%.*s", w.length, buf.ptr(w));
     inline const char* ptr(const Word& w) const;
@@ -48,6 +72,8 @@ namespace bng::word_db {
     bool operator!() const {
       return !_size;
     }
+
+    DictCounts collect_counts() const;
 
     ~DictBuf() {
       delete[] _text;
@@ -80,9 +106,8 @@ namespace bng::word_db {
     }
 
     uint32_t read_str(const char* buf_start, const char* p);
-
     uint32_t read_str(const DictBuf& buf, const char* p) {
-      return read_str(buf.front(), p);
+      return read_str(buf.begin(), p);
     }
 
     operator bool() const {
@@ -117,23 +142,9 @@ namespace bng::word_db {
 
 
   inline const char* DictBuf::ptr(const Word& w) const {
-    BNG_VERIFY(w.begin < _capacity, "word out of range");
+    BNG_VERIFY(w.begin < _size, "word out of range");
     return _text + w.begin;
   }
-
-  struct DictStats {
-    uint32_t word_counts[26] = {};
-    uint32_t total_count = 0;
-    uint32_t pad0 = 0;
-
-    operator bool() const {
-      return !!total_count;
-    }
-
-    bool operator !() const {
-      return !total_count;
-    }
-  };
 
 
   enum class WordI : uint32_t { kInvalid = ~0u };
@@ -157,8 +168,8 @@ namespace bng::word_db {
     }
 
     uint32_t size() const {
-      BNG_VERIFY(stats.total_count == live_word_count(), "");
-      return stats.total_count;
+      BNG_VERIFY(mem_counts.total_count() == live_counts.total_count(), "");
+      return live_counts.total_count();
     }
 
     operator bool() const {
@@ -190,7 +201,7 @@ namespace bng::word_db {
 
     WordI word_i(const Word& w) const {
       auto wi = uint32_t(&w - words_buf);
-      BNG_VERIFY(wi < stats.total_count, "");
+      BNG_VERIFY(wi < mem_counts.total_count(), "");
       return WordI(wi);
     }
 
@@ -205,21 +216,12 @@ namespace bng::word_db {
     }
 
     const Word* last_word(uint32_t letter_i) const {
-      auto pword = first_word(letter_i) + stats.word_counts[letter_i] - 1;
+      auto pword = first_word(letter_i) + mem_counts.word_counts[letter_i] - 1;
       BNG_VERIFY(!*(pword + 1), "word list for letter not null terminated.");
       return pword;
     }
 
   private:
-    uint32_t live_word_count() const {
-      uint32_t _live_word_count = 0;
-      for (auto c : stats.word_counts) {
-        _live_word_count += c;
-      }
-      BNG_VERIFY(_live_word_count <= stats.total_count, "");
-      return _live_word_count;
-    }
-
     uint32_t live_size_bytes() const {
       uint32_t _live_size_bytes = 0;
       for (auto s : size_bytes_by_letter) {
@@ -237,8 +239,6 @@ namespace bng::word_db {
 
     void process_word_list();
 
-    void collect_dict_stats();
-
     void collate_words();
 
     WordDB clone_packed() const;
@@ -250,7 +250,7 @@ namespace bng::word_db {
     }
 
     uint32_t words_count() const {
-      return uint32_t(stats.total_count + 26);
+      return uint32_t(mem_counts.total_count() + 26);
     }
 
     uint32_t words_size_bytes() const {
@@ -258,13 +258,14 @@ namespace bng::word_db {
     }
 
   private:
-    DictStats stats;
+    DictCounts mem_counts;
     WordI     words_by_letter[26] = {};
     uint32_t  size_bytes_by_letter[26] = {};
     // members here and before serialized in .pre files
     DictBuf   dict_buf;
     Word* words_buf = nullptr;
     // members here and below do not get serialized.
+    DictCounts live_counts;
   };
 
   struct Solution {
