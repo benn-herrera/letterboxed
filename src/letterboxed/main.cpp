@@ -66,10 +66,10 @@ namespace std_cmp {
     WordDB wordDB;
 
     auto txt_name = "words_alpha.txt";
-    auto pre_name = "words_alpha.pre";
+    auto pre_name = "words_alpha.stp";
 
     if (!wordDB.load(pre_name)) {
-      auto _ = BNG_SCOPED_TIMER("proccessed words_alpha.txt -> words_alpha.pre");
+      auto _ = BNG_SCOPED_TIMER("proccessed words_alpha.txt -> words_alpha.stp");
       wordDB.load(txt_name);
       wordDB.save(pre_name);
     }

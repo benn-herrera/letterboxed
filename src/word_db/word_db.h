@@ -83,8 +83,8 @@ namespace bng::word_db {
       return i;
     }
 
-    static bool is_end(const char* c) {
-      return !*c || *c == '\n' || *c == '\r';
+    static bool is_end(char c) {
+      return !c || c == '\n' || c == '\r';
     }
 
     static char idx_to_letter(uint32_t i) {
@@ -205,6 +205,9 @@ namespace bng::word_db {
 
     Solution* begin() { return buf; }
     Solution* end() { return buf + _size; }
+
+    const Solution& front() const { return *buf; }
+    const Solution& back() const { return *(buf + _size); }
 
     size_t capacity() const {
       return _capacity;

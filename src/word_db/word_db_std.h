@@ -53,8 +53,8 @@ namespace bng::word_db_std {
 
     Word() = default;
 
-    explicit Word(const char* str) {
-      read_str(str, str);
+    explicit Word(const std::string& buf) {
+      read_str(buf, 0);
     }
 
     Word(const Word& rhs, uint32_t new_begin) {
@@ -62,8 +62,7 @@ namespace bng::word_db_std {
       this->begin = new_begin;
     }
 
-    uint32_t read_str(const char* buf_start, const char* p);
-    inline uint32_t read_str(const TextBuf& buf, const char* p);
+    size_t read_str(const std::string& buf, size_t offset);
 
     void get_letters_str(char* pout) const {
       letters_to_str(letters, pout);
@@ -83,8 +82,8 @@ namespace bng::word_db_std {
       return i;
     }
 
-    static bool is_end(const char* c) {
-      return !*c || *c == '\n' || *c == '\r';
+    static bool is_end(char c) {
+      return !c || c == '\n' || c == '\r';
     }
 
     static char idx_to_letter(uint32_t i) {
@@ -102,72 +101,65 @@ namespace bng::word_db_std {
   };
 
 
-  class TextBuf {
+  class TextBuf : private std::string {
+  public:
+    using super = std::string;
+
   public:
     BNG_DECL_NO_COPY(TextBuf);
 
-    explicit TextBuf(uint32_t sz = 0);
+    explicit TextBuf(std::string&& rhs) noexcept 
+      : super(std::move(rhs)) 
+    {
+    }
+
+    explicit TextBuf(uint32_t sz = 0) {
+      reserve(sz);
+    }
+
+    TextBuf& operator=(std::string&& rhs) {
+      super::operator=(std::move(rhs));
+      return *this;
+    }
+
+    using super::size;
+    using super::capacity;
+
+    operator const super& () const { return *this; }
+
+    const super& as_string() const { return *this; }
 
     Word append(const TextBuf& src, const Word& w);
 
-    uint32_t capacity() const { return _capacity; }
-    uint32_t size() const { return _size; }
-    char* begin() { return _text; }
-    char* front() { return _text; }
-    const char* begin() const { return _text; }
-    const char* front() const { return _text; }
-    char* end() { return _text + _size; }
-    const char* end() const { return _text + _size; }
-
     void set_size(uint32_t new_size_bytes) {
-      BNG_VERIFY(new_size_bytes <= _capacity, "");
-      _size = new_size_bytes;
+      BNG_VERIFY(new_size_bytes <= capacity(), "");
+      resize(new_size_bytes);
     }
 
     bool in_size(const char* p) const {
-      return p < (_text + _size);
+      return size_t(p - &front()) < size();
     }
 
     bool in_capacity(const char* p) const {
-      return p < (_text + _capacity);
+      return size_t(p - &front()) < capacity();
     }
 
     // format example: printf("%.*s", w.length, buf.ptr(w));
     const char* ptr(const Word& w) const {
-      BNG_VERIFY(w.begin < _size, "word out of range");
-      return _text + w.begin;
+      BNG_VERIFY(w.begin < size(), "word out of range");
+      return data() + w.begin;
     }
 
     operator bool() const {
-      return !!_size;
+      return !empty();
     }
 
     bool operator!() const {
-      return !_size;
+      return empty();
     }
 
     TextStats collect_stats() const;
-
-    ~TextBuf() {
-      delete[] _text;
-      _text = nullptr;
-      _capacity = 0;
-    }
-
-    static uint32_t header_size_bytes() {
-      return offsetof(TextBuf, _text);
-    }
-
-  private:
-    uint32_t _capacity = 0;
-    uint32_t _size = 0;
-    char* _text = nullptr;
   };
-
-
-  inline uint32_t Word::read_str(const TextBuf& buf, const char* p) {
-    return read_str(buf.begin(), p);
-  }
 
 
   enum class WordIdx : uint32_t { kInvalid = ~0u };
@@ -179,47 +171,32 @@ namespace bng::word_db_std {
   };
 
 
-  struct SolutionSet {
+  class SolutionSet : private std::vector<Solution> {
+  public:
+    using super = std::vector<Solution>;
+
     BNG_DECL_NO_COPY(SolutionSet);
 
-    explicit SolutionSet(uint32_t c = 0) {
-      if (c) {
-        _capacity = c;
-        buf = new Solution[c];
-      }
-    }
+    SolutionSet() = default;
 
-    ~SolutionSet() {
-      delete[] buf;
-      buf = nullptr;
-      _size = _capacity = 0;
+    SolutionSet(size_t sz) {
+      reserve(sz);
     }
 
     void add(WordIdx a, WordIdx b) {
-      BNG_VERIFY(_size < _capacity, "out of space");
-      buf[_size++] = Solution{ a, b };
+      emplace_back(Solution{ a, b });
     }
 
-    const Solution* begin() const { return buf; }
-    const Solution* end() const { return buf + _size; }
+    operator const super& () const { return *this; }
 
-    Solution* begin() { return buf; }
-    Solution* end() { return buf + _size; }
-
-    size_t capacity() const {
-      return _capacity;
-    }
-
-    size_t size() const {
-      return _size;
-    }
+    using super::size;
+    using super::capacity;
+    using super::begin;
+    using super::end;
+    using super::front;
+    using super::back;
 
     void sort(const WordDB& wordDB);
-
-  private:
-    Solution* buf = nullptr;
-    uint32_t _size = 0;
-    uint32_t _capacity = 0;
   };
 
 
@@ -229,9 +206,10 @@ namespace bng::word_db_std {
 
     using SideSet = std::array<Word, 4>;
 
-    explicit WordDB(const char* path = nullptr);
+    WordDB() = default;
 
-    ~WordDB();
+    explicit WordDB(const std::filesystem::path& path);
+
 
     uint32_t size() const {
       BNG_VERIFY(mem_stats.total_count() == live_stats.total_count(), "");
@@ -239,16 +217,16 @@ namespace bng::word_db_std {
     }
 
     operator bool() const {
-      return !!words_buf;
+      return !words_buf.empty();
     }
 
     bool operator !() const {
-      return !words_buf;
+      return words_buf.empty();
     }
 
-    bool load(const char* path);
+    bool load(const std::filesystem::path& path);
 
-    void save(const char* path);
+    void save(const std::filesystem::path& path);
 
     void cull(const SideSet& sides);
 
@@ -278,13 +256,13 @@ namespace bng::word_db_std {
     }
 
     WordIdx word_i(const Word& w) const {
-      auto wi = uint32_t(&w - words_buf);
+      auto wi = uint32_t(&w - &words_buf.front());
       BNG_VERIFY(wi < words_count(), "word not in buffer!");
       return WordIdx(wi);
     }
 
     const Word* word(WordIdx i) const {
-      return (i != WordIdx::kInvalid) ? (words_buf + uint32_t(i)) : nullptr;
+      return (i != WordIdx::kInvalid) ? (&words_buf.front() + uint32_t(i)) : nullptr;
     }
 
     const Word* first_word(uint32_t letter_i) const {
@@ -299,11 +277,11 @@ namespace bng::word_db_std {
     }
 
   private:
-    void load_preproc(const char* path);
+    void load_preproc(const std::filesystem::path& path);
 
-    void save_preproc(const char* path) const;
+    void save_preproc(const std::filesystem::path& path) const;
 
-    void load_word_list(const char* path);
+    void load_word_list(const std::filesystem::path& path);
 
     void process_word_list();
 
@@ -314,7 +292,7 @@ namespace bng::word_db_std {
     void cull_word(Word& word);
 
     static uint32_t header_size_bytes() {
-      return offsetof(WordDB, text_buf) + TextBuf::header_size_bytes();
+      return offsetof(WordDB, text_buf);
     }
 
     uint32_t words_count() const {
@@ -338,12 +316,12 @@ namespace bng::word_db_std {
     }
 
   private:
-    TextStats mem_stats;
+    TextStats mem_stats = {};
     WordIdx words_by_letter[26] = {};
     // members here and before serialized in .pre files
     TextBuf text_buf;
-    Word* words_buf = nullptr;
+    std::vector<Word> words_buf;
     // members here and below do not get serialized.
-    TextStats live_stats;
+    TextStats live_stats = {};
   };
 } // namespace bng::word_db

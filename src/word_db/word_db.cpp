@@ -10,7 +10,7 @@ namespace bng::word_db {
     begin = uint32_t(p - buf_start);
     const auto b = buf_start + begin;
     bool has_double = false;
-    for (; !is_end(p); ++p) {
+    for (; !is_end(*p); ++p) {
       has_double = has_double || (p > b && (*p == *(p - 1)));
       const auto lbit = letter_to_bit(*p);
       letter_count += uint32_t(!(letters & lbit));
@@ -18,7 +18,7 @@ namespace bng::word_db {
     }
     const auto char_count = uint32_t(p - b);
     length = char_count;
-    for (; *p && is_end(p); ++p)
+    for (; *p && is_end(*p); ++p)
       ;
     BNG_VERIFY(letter_count <= 26, "accounting error. can't have %d unique letters", uint32_t(letter_count));
     is_dead = ((char_count > 0x3f) || length < 3 || letter_count > 12 || has_double);
@@ -308,9 +308,9 @@ namespace bng::word_db {
       ++stats.word_counts[li];
       // catch out of order dictionary
       BNG_VERIFY(li == 25 || !stats.word_counts[li + 1], "");
-      for (; !Word::is_end(p); ++p)
+      for (; !Word::is_end(*p); ++p)
         ;
-      for (; *p && Word::is_end(p); ++p)
+      for (; *p && Word::is_end(*p); ++p)
         ;
       stats.size_bytes[li] += uint32_t(p - pw);
     }

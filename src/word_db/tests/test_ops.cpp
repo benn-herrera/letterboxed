@@ -213,9 +213,9 @@ BNG_BEGIN_TEST(load_and_solve) {
 
 		BT_CHECK(solutions.size() == 1);
 
-		auto ps = solutions.begin();
-		auto& a = *db.word(ps->a);
-		auto& b = *db.word(ps->b);
+		const auto& ps = solutions.front();
+		auto& a = *db.word(ps.a);
+		auto& b = *db.word(ps.b);
 		auto sa = db.str(a); (void)sa;
 		auto sb = db.str(b); (void)sb;
 
