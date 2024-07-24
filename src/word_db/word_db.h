@@ -29,7 +29,7 @@ namespace bng::word_db {
     uint32_t total_count(bool null_terminated=false) const {
       uint32_t tc = 0;
       for (auto wc : word_counts) {
-        tc += wc + uint32_t(null_terminated);
+        tc += wc + uint32_t(wc && null_terminated);
       }
       return tc;
     }
