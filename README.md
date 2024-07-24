@@ -3,10 +3,14 @@
 ## Solver for NYT Word Puzzle Letter Boxed
 * [Game Link](https://www.nytimes.com/puzzles/letter-boxed)
 * [Tutorial](https://wordfinder.yourdictionary.com/blog/nyts-letter-boxed-a-quick-guide-to-the-fan-favorite-puzzle/)
+* [Letterboxed Answers](https://letterboxedanswers.com) is a good source for test puzzles
 * Regardless of the number of target words specified in the instructions for a given day there is always a two word solution.
 
 ## Build
-* ```(mkdir build && cd build && cmake ../src && cmake --build .)```
+* ```gen_project.sh```
+    * generates project via cmake
+    * builds project
+    * runs tests
 
 ## Usage
 * letterboxed [side1] [side2] [side3] [side4]

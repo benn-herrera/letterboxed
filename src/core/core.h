@@ -10,15 +10,16 @@
 #include <chrono>
 #include <memory>
 #include <array>
+#include <filesystem>
 
 #if defined(BNG_IS_WINDOWS)
-# include <direct.h>
 # if !defined(chdir)
 #   define chdir _chdir
 # endif
 # if !defined(unlink)
 #   define unlink _unlink
 # endif
+# define strncpy strncpy_s
 # pragma warning( disable : 4514 5045 )
 # if defined(BNG_DEBUG)
 extern "C" { 
@@ -31,16 +32,10 @@ extern "C" {
 #else
 # include <unistd.h>
 # include <signal.h>
-using rsize_t = uint32_t;
-inline void strcpy_s(char* dst, rsize_t max_count, const char* src) {
-  (void)max_count;
-  strcpy(dst, src);
-}
 inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
   *pfp = fopen(path, mode);
   return !!*pfp;
 }
-#define sprintf_s(DST, MAX_COUNT, FMT, ...) sprintf(DST, FMT, ##__VA_ARGS__)
 #endif
 
 #if !defined(BNG_PUTI)
@@ -67,7 +62,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_LOGI(FMT, ...) \
   do { \
     char log_line[1024]; \
-    sprintf_s(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
+    snprintf(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
     BNG_PUTI(bng::core::log::basename(__FILE__)); \
     BNG_PUTI(log_line); fflush(stdout); \
   } while(0)
@@ -75,7 +70,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_LOGE(FMT, ...) \
   do { \
     char log_line[1024]; \
-    sprintf_s(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
+    snprintf(log_line, sizeof(log_line), "(%d): " FMT "\n", __LINE__, ##__VA_ARGS__); \
     BNG_PUTE(bng::core::log::basename(__FILE__)); \
     BNG_PUTE(log_line); fflush(stderr); \
   } while(0)
@@ -83,7 +78,7 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_PRINT(FMT, ...) \
   do { \
     char log_line[1024]; \
-    sprintf_s(log_line, sizeof(log_line), FMT, ##__VA_ARGS__); \
+    snprintf(log_line, sizeof(log_line), FMT, ##__VA_ARGS__); \
     BNG_PUTI(log_line); fflush(stdout); \
   } while(0)
 
@@ -145,8 +140,8 @@ namespace bng::core {
       if (msg) {
         char time_buf[64];
         char num_buf[32];
-        sprintf_s(time_buf, sizeof(time_buf), " [%0.3lf%s]\n", elapsed_time, units_sfx(units));
-        sprintf_s(num_buf, sizeof(num_buf), "(%d): ", line);
+        snprintf(time_buf, sizeof(time_buf), " [%0.3lf%s]\n", elapsed_time, units_sfx(units));
+        snprintf(num_buf, sizeof(num_buf), "(%d): ", line);
         BNG_PUTI(file);
         BNG_PUTI(num_buf);
         BNG_PUTI(msg);
