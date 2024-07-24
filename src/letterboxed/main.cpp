@@ -150,7 +150,6 @@ int main(int argc, const char *argv[]) {
         return 1;
       }
 
-
       {
         auto _pt = ScopedTimer(&preload_ms);
         wordDB = load_word_db();
@@ -166,10 +165,10 @@ int main(int argc, const char *argv[]) {
 
     // show results
     solutions.sort(wordDB);
-    BNG_PRINT("%d solutions\n=============\n", solutions.count);
-    for (auto ps = solutions.buf, pe = solutions.buf + solutions.count; ps < pe; ++ps) {
-      auto& a = *wordDB.word(ps->a);
-      auto& b = *wordDB.word(ps->b);
+    BNG_PRINT("%d solutions\n=============\n", uint32_t(solutions.size()));
+    for (auto ps : solutions) {
+      auto& a = *wordDB.word(ps.a);
+      auto& b = *wordDB.word(ps.b);
       if (a.letter_count == 12 || b.letter_count == 12) {
         auto& c = (a.letter_count == 12) ? a : b;
         BNG_PRINT("    %.*s\n", uint32_t(c.length), wordDB.str(c));
@@ -209,10 +208,10 @@ int main(int argc, const char *argv[]) {
 
     // show results
     solutions.sort(wordDB);
-    BNG_PRINT("%d solutions\n=============\n", solutions.count);
-    for (auto ps = solutions.buf, pe = solutions.buf + solutions.count; ps < pe; ++ps) {
-      auto& a = *wordDB.word(ps->a);
-      auto& b = *wordDB.word(ps->b);
+    BNG_PRINT("%d solutions\n=============\n", uint32_t(solutions.size()));
+    for (auto ps : solutions) {
+      auto& a = *wordDB.word(ps.a);
+      auto& b = *wordDB.word(ps.b);
       if (a.letter_count == 12 || b.letter_count == 12) {
         auto& c = (a.letter_count == 12) ? a : b;
         BNG_PRINT("    %.*s\n", uint32_t(c.length), wordDB.str(c));

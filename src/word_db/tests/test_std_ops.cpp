@@ -1,7 +1,8 @@
-#include "word_db.h"
+#include "word_db_std.h"
 #include "test_harness/test_harness.h"
+#include <fstream>
 
-using namespace bng::word_db;
+using namespace bng::word_db_std;
 
 static char dict_text[] =
 	"ant\nantonym\n"
@@ -37,9 +38,8 @@ const char* puzzle_sides[] = {
 };
 
 void write_word_list() {
-	File word_list("word_list.txt", "w");
-	assert(word_list);
-	fwrite(dict_text, sizeof(dict_text) - 1, 1, word_list);
+	std::ofstream word_list("word_list.txt", std::ofstream::out);
+	word_list << dict_text;
 }
 
 BNG_BEGIN_TEST(dict_counts) {

@@ -63,8 +63,8 @@ namespace bng::word_db {
 
   void SolutionSet::sort(const WordDB& wordDB) {
     std::sort(
-      buf,
-      buf + count,
+      begin(),
+      end(),
       [&wordDB](auto& lhs, auto& rhs) -> bool {
         return
           (wordDB.word(lhs.a)->length + wordDB.word(lhs.b)->length)

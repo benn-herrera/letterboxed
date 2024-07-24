@@ -182,13 +182,9 @@ namespace bng::word_db {
   struct SolutionSet {
     BNG_DECL_NO_COPY(SolutionSet);
 
-    Solution* buf = nullptr;
-    uint32_t count = 0;
-    uint32_t capacity = 0;
-
     explicit SolutionSet(uint32_t c = 0) {
       if (c) {
-        capacity = c;
+        _capacity = c;
         buf = new Solution[c];
       }
     }
@@ -196,15 +192,34 @@ namespace bng::word_db {
     ~SolutionSet() {
       delete[] buf;
       buf = nullptr;
-      count = capacity = 0;
+      _size = _capacity = 0;
     }
 
     void add(WordIdx a, WordIdx b) {
-      BNG_VERIFY(count < capacity, "out of space");
-      buf[count++] = Solution{ a, b };
+      BNG_VERIFY(_size < _capacity, "out of space");
+      buf[_size++] = Solution{ a, b };
+    }
+
+    const Solution* begin() const { return buf; }
+    const Solution* end() const { return buf + _size; }
+
+    Solution* begin() { return buf; }
+    Solution* end() { return buf + _size; }
+
+    size_t capacity() const {
+      return _capacity;
+    }
+
+    size_t size() const {
+      return _size;
     }
 
     void sort(const WordDB& wordDB);
+
+  private:
+    Solution* buf = nullptr;
+    uint32_t _size = 0;
+    uint32_t _capacity = 0;
   };
 
 
