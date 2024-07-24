@@ -1,5 +1,7 @@
 #pragma once
 #include "core/core.h"
+#include <istream>
+#include <ostream>
 
 namespace bng::word_db_std {
   using namespace core;
@@ -26,10 +28,10 @@ namespace bng::word_db_std {
       return bool(*this) == false;
     }
 
-    uint32_t total_count() const {
+    uint32_t total_count(bool null_terminated = false) const {
       uint32_t tc = 0;
       for (auto wc : word_counts) {
-        tc += wc;
+        tc += wc + uint32_t(null_terminated);
       }
       return tc;
     }
@@ -40,6 +42,16 @@ namespace bng::word_db_std {
         tsb += sb;
       }
       return tsb;
+    }
+
+    friend std::ostream& operator <<(std::ostream& ostr, const TextStats& obj) {
+      ostr.write((const char*)&obj, sizeof(TextStats));
+      return ostr;
+    }
+
+    friend std::istream& operator <<(TextStats& obj, std::istream& istr) {
+      istr.read((char*)&obj, sizeof(TextStats));
+      return istr;
     }
   };
 
@@ -120,6 +132,21 @@ namespace bng::word_db_std {
     TextBuf& operator=(std::string&& rhs) {
       super::operator=(std::move(rhs));
       return *this;
+    }
+
+    friend std::ostream& operator <<(std::ostream& ostr, const TextBuf& obj) {
+      const uint64_t bsize = obj.size();
+      ostr.write((const char*)&bsize, sizeof(bsize));
+      ostr.write(obj.data(), std::streamsize(bsize));
+      return ostr;
+    }
+
+    friend std::istream& operator <<(TextBuf& obj, std::istream& istr) {
+      uint64_t bsize = 0;
+      istr.read((char*)&bsize, sizeof(bsize));
+      obj.resize(bsize);
+      istr.read(obj.data(), std::streamsize(bsize));
+      return istr;
     }
 
     using super::size;
@@ -281,6 +308,10 @@ namespace bng::word_db_std {
 
     void save_preproc(const std::filesystem::path& path) const;
 
+    friend std::ostream& operator <<(std::ostream& ostr, const WordDB& db);
+
+    friend std::istream& operator <<(WordDB& db, std::istream& istr);
+
     void load_word_list(const std::filesystem::path& path);
 
     void process_word_list();
@@ -296,7 +327,7 @@ namespace bng::word_db_std {
     }
 
     uint32_t words_count() const {
-      return uint32_t(mem_stats.total_count() + 26);
+      return uint32_t(mem_stats.total_count(/*null_terminated=*/true));
     }
 
     uint32_t words_size_bytes() const {

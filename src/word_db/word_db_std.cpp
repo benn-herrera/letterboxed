@@ -127,7 +127,7 @@ namespace bng::word_db_std {
         continue;
       }
 
-      for (auto wi = size_t(li); words_buf[wi]; ++wi) {
+      for (auto wi = size_t(words_by_letter[li]); words_buf[wi]; ++wi) {
         auto& w = words_buf[wi];
         // check for use of unavailable letters
         if ((w.letters | all_letters) != all_letters) {
@@ -137,7 +137,7 @@ namespace bng::word_db_std {
         bool double_tap = false;
         for (auto sp = str(w), se = str(w) + w.length - 1; !double_tap && sp < se; ++sp) {
           auto letter_pair = Word::letter_to_bit(*sp) | Word::letter_to_bit(*(sp + 1));
-          BNG_VERIFY(bool(letter_pair & (letter_pair - 1)), "");
+          BNG_VERIFY(bool(letter_pair & (letter_pair - 1)), "double letters should have been culled in initial load.");
           for (auto s : sides) {
             auto overlap = s.letters & letter_pair;
             // hits same side with 2 sequential letters.
@@ -212,7 +212,7 @@ namespace bng::word_db_std {
       words_buf.size() == rhs.words_buf.size() &&
       !memcmp(&live_stats, &rhs.live_stats, sizeof(live_stats)) &&
       !memcmp(words_by_letter, rhs.words_by_letter, sizeof(words_by_letter)) &&
-      !memcmp(words_buf.data(), rhs.words_buf.data(), words_buf.size()) &&
+      !memcmp(words_buf.data(), rhs.words_buf.data(), words_buf.size() * sizeof(Word)) &&
       !memcmp(text_buf.as_string().data(), rhs.text_buf.as_string().data(), text_buf.size());
   }
 
@@ -222,44 +222,45 @@ namespace bng::word_db_std {
 
   void WordDB::load_preproc(const std::filesystem::path& path) {
     BNG_VERIFY(!path.empty() && path.extension() == ".stp", "invalid path");
-    std::ifstream fin(path, std::ifstream::binary);
+    std::ifstream fin(path, std::ifstream::binary | std::ifstream::in);
     if (!fin.is_open()) {
       return;
     }
-    fin.read((char*)&mem_stats, sizeof(mem_stats));
-    fin.read((char*)&words_by_letter, sizeof(words_by_letter));
-    size_t tb_size = 0, wb_size = 0;
-    fin.read((char*)&tb_size, sizeof(tb_size));
-    fin.read((char*)&wb_size, sizeof(wb_size));
-    {
-      std::string tb;
-      tb.resize(tb_size);
-      fin.read(tb.data(), std::streamsize(wb_size));
-      text_buf = std::move(tb);
-    }
-    words_buf.resize(wb_size);
-    fin.read((char*)words_buf.data(), std::streamsize(wb_size * sizeof(Word)));
+    *this << fin;
     live_stats = mem_stats;
   }
 
   void WordDB::save_preproc(const std::filesystem::path& path) const {
     BNG_VERIFY(!path.empty() && path.extension() == ".stp", "");
     BNG_VERIFY(text_buf.size() == live_stats.total_size_bytes(), "");
-    std::ofstream fout(path, std::ofstream::binary);
+    std::ofstream fout(path, std::ofstream::binary | std::ofstream::out);
     BNG_VERIFY(fout.is_open(), "");
     if (!fout.is_open()) {
       return;
     }
-    fout.write((const char*)&mem_stats, sizeof(mem_stats));
-    fout.write((const char*)&words_by_letter, sizeof(words_by_letter));
-    size_t tb_size = text_buf.size();
-    size_t wb_size = words_buf.size();
-    fout.write((const char*)&tb_size, sizeof(tb_size));
-    fout.write((const char*)&wb_size, sizeof(wb_size));
-    fout.write((const char*)text_buf.as_string().data(), std::streamsize(tb_size));
-    fout.write((const char*)words_buf.data(), std::streamsize(wb_size * sizeof(Word)));
+    fout << *this;
   }
 
+  std::ostream& operator<<(std::ostream& ostr, const WordDB& obj) {
+    ostr << obj.mem_stats;
+    ostr.write((const char*)obj.words_by_letter, sizeof(obj.words_by_letter));
+    ostr << obj.text_buf;
+    const auto wsize = uint64_t(obj.words_buf.size() * sizeof(Word));
+    ostr.write((const char*)&wsize, sizeof(wsize));
+    ostr.write((const char*)obj.words_buf.data(), std::streamsize(wsize));
+    return ostr;
+  }
+
+  std::istream& operator<<(WordDB& obj, std::istream& istr) {
+    obj.mem_stats << istr;
+    istr.read((char*)obj.words_by_letter, sizeof(obj.words_by_letter));
+    obj.text_buf << istr;
+    uint64_t wsize = 0;
+    istr.read((char*)&wsize, sizeof(wsize));
+    obj.words_buf.resize(wsize / sizeof(Word));
+    istr.read((char*)obj.words_buf.data(), std::streamsize(wsize));
+    return istr;
+  }
 
   void WordDB::load_word_list(const std::filesystem::path& path) {
     BNG_VERIFY(!path.empty() && path.extension() == ".txt", "");

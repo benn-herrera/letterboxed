@@ -26,10 +26,10 @@ namespace bng::word_db {
       return bool(*this) == false;
     }
 
-    uint32_t total_count() const {
+    uint32_t total_count(bool null_terminated=false) const {
       uint32_t tc = 0;
       for (auto wc : word_counts) {
-        tc += wc;
+        tc += wc + uint32_t(null_terminated);
       }
       return tc;
     }
@@ -321,7 +321,7 @@ namespace bng::word_db {
     }
 
     uint32_t words_count() const {
-      return uint32_t(mem_stats.total_count() + 26);
+      return uint32_t(mem_stats.total_count(/*null_terminated*/true));
     }
 
     uint32_t words_size_bytes() const {
