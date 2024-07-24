@@ -152,8 +152,6 @@ namespace bng::word_db_std {
     using super::size;
     using super::capacity;
 
-    operator const super& () const { return *this; }
-
     const super& as_string() const { return *this; }
 
     Word append(const TextBuf& src, const Word& w);
@@ -213,8 +211,6 @@ namespace bng::word_db_std {
     void add(WordIdx a, WordIdx b) {
       emplace_back(Solution{ a, b });
     }
-
-    operator const super& () const { return *this; }
 
     using super::size;
     using super::capacity;
