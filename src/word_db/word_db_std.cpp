@@ -134,23 +134,20 @@ namespace bng::word_db_std {
           cull_word(w);
           continue;
         }
-        bool double_tap = false;
-        for (auto sp = str(w), se = str(w) + w.length - 1; !double_tap && sp < se; ++sp) {
+        for (auto sp = str(w), se = str(w) + w.length - 1; sp < se; ++sp) {
           auto letter_pair = Word::letter_to_bit(*sp) | Word::letter_to_bit(*(sp + 1));
           BNG_VERIFY(bool(letter_pair & (letter_pair - 1)), "double letters should have been culled in initial load.");
           for (auto s : sides) {
             auto overlap = s.letters & letter_pair;
             // hits same side with 2 sequential letters.
             if (bool(overlap & (overlap - 1))) {
-              double_tap = true;
-              break;
+              cull_word(w);
+              goto continue_outer;
             }
           }
         }
-        if (double_tap) {
-          cull_word(w);
-          continue;
-        }
+      continue_outer:
+        ;
       }
     }
 
