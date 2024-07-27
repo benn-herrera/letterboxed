@@ -266,7 +266,6 @@ namespace bng::word_db_std {
     }
 
     WordDB& operator=(WordDB&& rhs) noexcept {
-      this->~WordDB();
       text_buf = std::move(rhs.text_buf);
       words_buf = std::move(rhs.words_buf);
       mem_stats = rhs.mem_stats;
