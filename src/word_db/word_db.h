@@ -104,7 +104,7 @@ namespace bng::word_db {
 
   class TextBuf {
   public:
-    BNG_DECL_NO_COPY(TextBuf);
+    BNG_DECL_NO_COPY_IMPL_MOVE(TextBuf);
 
     explicit TextBuf(uint32_t sz = 0);
 
@@ -180,7 +180,7 @@ namespace bng::word_db {
 
 
   struct SolutionSet {
-    BNG_DECL_NO_COPY(SolutionSet);
+    BNG_DECL_NO_COPY_IMPL_MOVE(SolutionSet);
 
     explicit SolutionSet(uint32_t c = 0) {
       if (c) {
@@ -228,7 +228,7 @@ namespace bng::word_db {
 
   class WordDB {
   public:
-    BNG_DECL_NO_COPY(WordDB);
+    BNG_DECL_NO_COPY_IMPL_MOVE(WordDB);
 
     using SideSet = std::array<Word, 4>;
 

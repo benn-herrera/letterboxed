@@ -1,10 +1,10 @@
-macro(forbid_exe_test_targets)
+macro(bng_forbid_exe_test_targets)
   if (TEST_SOURCES)
     message(FATAL_ERROR "do put tests in exe target ${TARGET}. anything that needs testing belongs in a library.")
   endif()
 endmacro()
 
-macro(collect_test_sources)
+macro(bng_collect_test_sources)
   file(${SOURCES_GLOB} TEST_SOURCES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp" )
   file(${SOURCES_GLOB} TEST_HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h" )
 
@@ -12,7 +12,7 @@ macro(collect_test_sources)
   list(REMOVE_ITEM HEADERS ${TEST_HEADERS})
 endmacro()
 
-macro(add_lib_test_targets)
+macro(bng_add_lib_test_targets)
   if(BNG_BUILD_TESTS AND TEST_SOURCES)
     set(RUN_LIB_SUITE_TARGET run_${TARGET}_suite)
     add_custom_target(${RUN_LIB_SUITE_TARGET} DEPENDS ${TARGET})
@@ -61,7 +61,7 @@ macro(add_lib_test_targets)
   endif()
 endmacro()
 
-macro(add_run_all_tests_target)
+macro(bng_add_run_all_tests_target)
   if(ALL_RUN_TEST_TARGETS)
     add_custom_target(run_all_suites DEPENDS ${ALL_RUN_TEST_TARGETS})
     set_target_properties(

@@ -34,4 +34,4 @@ if(NOT _VS_STARTUP_PROJECT)
 endif()
 unset(_VS_STARTUP_PROJECT)
 
-forbid_exe_test_targets()
+bng_forbid_exe_test_targets()

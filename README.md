@@ -19,3 +19,16 @@
 
 ## Third Party Resources
 * [words_alpha.txt](https://github.com/dwyl/english-words)
+
+## Additional Utility
+This project is a useful template for bootstapping new projects.
+* see core/CMakeLists.txt, word_db/CMakeLists.txt, letterboxed/CMakeLists.txt for examples of adding libraries and executables to the project.
+    * Library:
+        * make a subdirectory, add a CMakeLists.txt that includes the library target cmake
+        * a library target named after the directory will get added
+        * files under tests/ will get added to test targets
+        * specify dependencies by target name
+    * Executable:
+        * make a subdirectory, add a CMakeLists.txt that include the executable target cmake
+        * specify link dependencies by target name
+    Generated project will have targets for building and running tests.

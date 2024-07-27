@@ -120,6 +120,11 @@ namespace bng::word_db_std {
   public:
     BNG_DECL_NO_COPY(TextBuf);
 
+    explicit TextBuf(TextBuf&& rhs) noexcept
+      : super(std::move(rhs))
+    {
+    }
+
     explicit TextBuf(std::string&& rhs) noexcept 
       : super(std::move(rhs)) 
     {
@@ -129,7 +134,12 @@ namespace bng::word_db_std {
       reserve(sz);
     }
 
-    TextBuf& operator=(std::string&& rhs) {
+    TextBuf& operator=(TextBuf&& rhs) noexcept {
+      super::operator=(std::move(rhs));
+      return *this;
+    }
+
+    TextBuf& operator=(std::string&& rhs) noexcept {
       super::operator=(std::move(rhs));
       return *this;
     }
@@ -204,8 +214,18 @@ namespace bng::word_db_std {
 
     SolutionSet() = default;
 
-    SolutionSet(size_t sz) {
+    explicit SolutionSet(size_t sz) {
       reserve(sz);
+    }
+
+    SolutionSet(SolutionSet&& rhs) noexcept 
+      : super(std::move(rhs)) 
+    {
+    }
+
+    SolutionSet& operator=(SolutionSet&& rhs) noexcept {
+      super::operator=(std::move(rhs));
+      return *this;
     }
 
     void add(WordIdx a, WordIdx b) {
@@ -233,6 +253,30 @@ namespace bng::word_db_std {
 
     explicit WordDB(const std::filesystem::path& path);
 
+    WordDB(WordDB&& rhs) noexcept :
+      text_buf(std::move(rhs.text_buf)),
+      words_buf(std::move(rhs.words_buf))
+    {
+      mem_stats = rhs.mem_stats;
+      live_stats = rhs.live_stats;
+      memcpy(words_by_letter, rhs.words_by_letter, sizeof(words_by_letter));
+      rhs.mem_stats = {};
+      rhs.live_stats = {};
+      memset(rhs.words_by_letter, 0, sizeof(rhs.words_by_letter));
+    }
+
+    WordDB& operator=(WordDB&& rhs) noexcept {
+      this->~WordDB();
+      text_buf = std::move(rhs.text_buf);
+      words_buf = std::move(rhs.words_buf);
+      mem_stats = rhs.mem_stats;
+      live_stats = rhs.live_stats;
+      memcpy(words_by_letter, rhs.words_by_letter, sizeof(words_by_letter));
+      rhs.mem_stats = {};
+      rhs.live_stats = {};
+      memset(rhs.words_by_letter, 0, sizeof(rhs.words_by_letter));
+      return *this;
+    }
 
     uint32_t size() const {
       BNG_VERIFY(mem_stats.total_count() == live_stats.total_count(), "");

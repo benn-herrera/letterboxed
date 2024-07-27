@@ -46,6 +46,8 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
 #define BNG_DECL_NO_COPY(CLASS) \
   CLASS(const CLASS&) = delete; \
   CLASS& operator =(const CLASS&) = delete;\
+
+#define BNG_IMPL_MOVE(CLASS) \
   CLASS(CLASS&& rhs) noexcept { \
     memcpy(this, &rhs, sizeof(*this)); \
     memset(&rhs, 0, sizeof(*this)); \
@@ -56,6 +58,10 @@ inline bool fopen_s(FILE** pfp, const char* path, const char* mode) {
     memset(&rhs, 0, sizeof(*this)); \
     return *this; \
   }
+
+#define BNG_DECL_NO_COPY_IMPL_MOVE(CLASS) \
+  BNG_DECL_NO_COPY(CLASS) \
+  BNG_IMPL_MOVE(CLASS)
 
 #define BNG_STRINGIFY(V) #V
 
@@ -119,7 +125,7 @@ namespace bng::core {
 
   class ScopedTimer {
   public:
-    BNG_DECL_NO_COPY(ScopedTimer);
+    BNG_DECL_NO_COPY_IMPL_MOVE(ScopedTimer);
 
     enum class Units : uint32_t { ns, us, ms, s };
 
@@ -198,7 +204,7 @@ namespace bng::core {
   ScopedTimer(__FILE__, __LINE__, MSG, ##__VA_ARGS__)
 
   struct File {
-    BNG_DECL_NO_COPY(File);
+    BNG_DECL_NO_COPY_IMPL_MOVE(File);
     FILE* fp = nullptr;
 
     explicit File(const char* path, const char* mode) {

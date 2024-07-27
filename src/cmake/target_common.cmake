@@ -9,7 +9,7 @@ if (NOT TARGET)
 endif()
 
 if(AUTO_AIO)
-  set(AIO_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TARGET}AIO.cpp")
+  set(AIO_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${TARGET}_aio.cpp")
   if(EXISTS "${AIO_SOURCE}")
     file(REMOVE "${AIO_SOURCE}")
   endif()
@@ -23,7 +23,7 @@ file(${SOURCES_GLOB} HEADERS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CUR
 file(${SOURCES_GLOB} SOURCES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 # defines TEST_SOURCES, TEST_HEADERS
-collect_test_sources()
+bng_collect_test_sources()
 
 list(LENGTH SOURCES SOURCE_COUNT)
 
@@ -59,3 +59,44 @@ if(BNG_USE_FOLDERS)
     endif()
   endforeach()
 endif()
+
+macro(bng_add_link_libraries)
+  target_link_libraries(${TARGET} ${ARGN})
+endmacro()
+
+macro(bng_add_dependencies)
+  add_dependencies(${TARGET} ${ARGN})
+endmacro()
+
+macro(bng_copy_resources)
+  cmake_parse_arguments(COPY_RESOURCES "" "SUBDIR" "FILES;DIRECTORIES" "${ARGN}")
+  if(NOT (COPY_RESOURCES_FILES OR COPY_RESOURCES_DIRECTORIES))
+    message(FATAL_ERROR "one or more of FILES, DIRECTORIES is required")
+  endif()
+  
+  if(COPY_RESOURCES_SUBDIR)
+    add_custom_command(TARGET ${TARGET}
+      COMMAND
+      "${CMAKE_COMMAND}" -E make_directory
+      "$<TARGET_FILE_DIR:${TARGET}>/${COPY_RESOURCES_SUBDIR}/"
+    )
+  endif()
+
+  if(COPY_RESOURCES_FILES)
+    add_custom_command(TARGET ${TARGET}
+      COMMAND
+      "${CMAKE_COMMAND}" -E copy
+      ${COPY_RESOURCES_FILES}
+      "$<TARGET_FILE_DIR:${TARGET}>/${COPY_RESOURCES_SUBDIR}/"
+    )
+  endif()
+
+  if(COPY_RESOURCES_DIRECTORIES)
+    add_custom_command(TARGET ${TARGET}
+      COMMAND
+      "${CMAKE_COMMAND}" -E copy_directory
+      ${COPY_RESOURCES_DIRECTORIES}
+      "$<TARGET_FILE_DIR:${TARGET}>/${COPY_RESOURCES_SUBDIR}/"
+    )
+  endif()
+endmacro()

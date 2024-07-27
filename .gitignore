@@ -5,4 +5,4 @@ CMakeCache.txt
 *.log
 *.zip
 *.tgz
-*AIO.c*
+*_aio.c*
