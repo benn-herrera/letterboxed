@@ -2,7 +2,7 @@ if(NOT THIRD_PARTY_DIR)
   message(FATAL_ERROR "set THIRD_PARTY_DIR before including")
 endif()
 
-function(add_3p_header_lib NAME REPO VERSION INTERFACE_DIR GLOB)
+function(bng_add_3p_header_lib NAME REPO VERSION INTERFACE_DIR GLOB)
   set(LIB_DIR "${THIRD_PARTY_DIR}/${NAME}")
   if((NOT INTERFACE_DIR) OR (INTERFACE_DIR STREQUAL "."))
     set(INTERFACE_DIR "${LIB_DIR}")

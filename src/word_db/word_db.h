@@ -26,10 +26,10 @@ namespace bng::word_db {
       return bool(*this) == false;
     }
 
-    uint32_t total_count() const {
+    uint32_t total_count(bool null_terminated=false) const {
       uint32_t tc = 0;
       for (auto wc : word_counts) {
-        tc += wc;
+        tc += wc + uint32_t(wc && null_terminated);
       }
       return tc;
     }
@@ -79,23 +79,16 @@ namespace bng::word_db {
 
     static uint32_t letter_to_idx(char ltr) {
       const auto i = uint32_t(ltr - 'a');
-      BNG_VERIFY(i < 26, "");
-      return i;
-    }
-
-    static bool is_end(const char* c) {
-      return !*c || *c == '\n' || *c == '\r';
+      return i < 26 ? i : ~0u;
     }
 
     static char idx_to_letter(uint32_t i) {
-      BNG_VERIFY(i < 26, "");
-      return char('a' + i);
+      return i < 26 ? char('a' + i) : '*';
     }
 
     static uint32_t letter_to_bit(char ltr) {
       const auto i = uint32_t(ltr - 'a');
-      BNG_VERIFY(i < 26, "");
-      return 1u << i;
+      return (i < 26) ? 1u << i : 0u;
     }
 
     static void letters_to_str(uint64_t letter_bits, char* pout);
@@ -104,7 +97,7 @@ namespace bng::word_db {
 
   class TextBuf {
   public:
-    BNG_DECL_NO_COPY(TextBuf);
+    BNG_DECL_NO_COPY_IMPL_MOVE(TextBuf);
 
     explicit TextBuf(uint32_t sz = 0);
 
@@ -154,10 +147,6 @@ namespace bng::word_db {
       _capacity = 0;
     }
 
-    static uint32_t header_size_bytes() {
-      return offsetof(TextBuf, _text);
-    }
-
   private:
     uint32_t _capacity = 0;
     uint32_t _size = 0;
@@ -180,15 +169,11 @@ namespace bng::word_db {
 
 
   struct SolutionSet {
-    BNG_DECL_NO_COPY(SolutionSet);
-
-    Solution* buf = nullptr;
-    uint32_t count = 0;
-    uint32_t capacity = 0;
+    BNG_DECL_NO_COPY_IMPL_MOVE(SolutionSet);
 
     explicit SolutionSet(uint32_t c = 0) {
       if (c) {
-        capacity = c;
+        _capacity = c;
         buf = new Solution[c];
       }
     }
@@ -196,21 +181,43 @@ namespace bng::word_db {
     ~SolutionSet() {
       delete[] buf;
       buf = nullptr;
-      count = capacity = 0;
+      _size = _capacity = 0;
     }
 
     void add(WordIdx a, WordIdx b) {
-      BNG_VERIFY(count < capacity, "out of space");
-      buf[count++] = Solution{ a, b };
+      BNG_VERIFY(_size < _capacity, "out of space");
+      buf[_size++] = Solution{ a, b };
+    }
+
+    const Solution* begin() const { return buf; }
+    const Solution* end() const { return buf + _size; }
+
+    Solution* begin() { return buf; }
+    Solution* end() { return buf + _size; }
+
+    const Solution& front() const { return *buf; }
+    const Solution& back() const { return *(buf + _size); }
+
+    size_t capacity() const {
+      return _capacity;
+    }
+
+    size_t size() const {
+      return _size;
     }
 
     void sort(const WordDB& wordDB);
+
+  private:
+    Solution* buf = nullptr;
+    uint32_t _size = 0;
+    uint32_t _capacity = 0;
   };
 
 
   class WordDB {
   public:
-    BNG_DECL_NO_COPY(WordDB);
+    BNG_DECL_NO_COPY_IMPL_MOVE(WordDB);
 
     using SideSet = std::array<Word, 4>;
 
@@ -299,11 +306,11 @@ namespace bng::word_db {
     void cull_word(Word& word);
 
     static uint32_t header_size_bytes() {
-      return offsetof(WordDB, text_buf) + TextBuf::header_size_bytes();
+      return offsetof(WordDB, text_buf);
     }
 
     uint32_t words_count() const {
-      return uint32_t(mem_stats.total_count() + 26);
+      return uint32_t(mem_stats.total_count(/*null_terminated*/true));
     }
 
     uint32_t words_size_bytes() const {

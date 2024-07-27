@@ -70,3 +70,9 @@ set_target_properties(FORCE_REGEN PROPERTIES FOLDER "CMakePredefinedTargets")
 add_custom_command(TARGET FORCE_REGEN 
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" "${PROJECT_SOURCE_DIR}")
+
+macro(bng_forbid_in_source_build)
+  if("${CMAKE_CURRENT_BINARY_DIR}" STREQUAL "${REPO_ROOT_DIR}" OR "${CMAKE_CURRENT_BINARY_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+    message(FATAL_ERROR "In-source building is not supported.")  
+  endif()
+endmacro()

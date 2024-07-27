@@ -1,7 +1,8 @@
-#include "word_db.h"
+#include "word_db_std.h"
 #include "test_harness/test_harness.h"
+#include <fstream>
 
-using namespace bng::word_db;
+using namespace bng::word_db_std;
 
 static char dict_text[] =
 	"ant\nantonym\n"
@@ -37,16 +38,12 @@ const char* puzzle_sides[] = {
 };
 
 void write_word_list() {
-	File word_list("word_list.txt", "w");
-	assert(word_list);
-	fwrite(dict_text, sizeof(dict_text) - 1, 1, word_list);
+	std::ofstream word_list("word_list.txt", std::ofstream::out);
+	word_list << dict_text;
 }
 
 BNG_BEGIN_TEST(dict_counts) {
-	TextBuf db(sizeof(dict_text) - 1);
-	memcpy(db.end(), dict_text, sizeof(dict_text) - 1);
-	db.set_size(db.capacity());
-
+	auto db = TextBuf(std::string(dict_text));
 	TextStats stats = db.collect_stats();
 
 	BT_CHECK(stats.word_counts['a' -'a'] == 2);
@@ -114,13 +111,13 @@ BNG_BEGIN_TEST(load_and_solve) {
 		BT_CHECK(!db);
 		BT_CHECK(!db.load("foo.txt"));
 		BT_CHECK(!db);
-		BT_CHECK(!db.load("foo.pre"));
+		BT_CHECK(!db.load("foo.stp"));
 		BT_CHECK(!db);
 
 		WordDB db2("foo.txt");
 		BT_CHECK(!db2);
 
-		WordDB db3("foo.pre");
+		WordDB db3("foo.stp");
 		BT_CHECK(!db3);
 	}
 
@@ -138,16 +135,16 @@ BNG_BEGIN_TEST(load_and_solve) {
 			}
 		}
 
-		db.save("words.pre");
-		BT_CHECK(File("words.pre", "rb"));
-		WordDB db2("words.pre");
+		db.save("words.stp");
+		BT_CHECK(File("words.stp", "rb"));
+		WordDB db2("words.stp");
 		BT_CHECK(db2);
 		BT_CHECK(db.is_equivalent(db2));
 	}
 	{
 		WordDB db;
-		BT_CHECK(db.load("words.pre"));
-		(void)unlink("words.pre");
+		BT_CHECK(db.load("words.stp"));
+		(void)unlink("words.stp");
 
 		for (uint32_t i = 0; i < 26; ++i) {
 			if (db.get_text_stats().word_counts[i]) {
@@ -213,7 +210,7 @@ BNG_BEGIN_TEST(load_and_solve) {
 
 		BT_CHECK(solutions.size() == 1);
 
-		const auto& ps = solutions.front();
+		auto& ps = solutions.front();
 		auto& a = *db.word(ps.a);
 		auto& b = *db.word(ps.b);
 		auto sa = db.str(a); (void)sa;

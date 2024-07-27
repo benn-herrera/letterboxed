@@ -79,12 +79,20 @@ namespace bng::test {
     }
 
   public:
-    int check_count = 0, err_count = 0;
+    void inc_check_count() {
+      ++check_count;
+    }
+
+    void inc_err_count() {
+      ++err_count;
+    }
 
   private:
     Test* next = nullptr;
     TestFunc* run = nullptr;
     const char* name = nullptr;
+    int check_count = 0;
+    int err_count = 0;
 
     static Test*& first() { static Test* t = nullptr; return t; }
     static Test*& last() { static Test* t = nullptr; return t; }
@@ -102,9 +110,9 @@ namespace bng::test {
     BNG_END_TEST()
 
  # define BT_CHECK(V) do { \
-    _t_->check_count++; \
+    _t_->inc_check_count(); \
     if (!(V)) { \
-      _t_->err_count++; \
+      _t_->inc_err_count(); \
       fprintf(stderr, "%s(%d): CHECK " #V " FAILED!\n", __FILE__, __LINE__); } \
     } while(0)
 } // namepsace bng::test

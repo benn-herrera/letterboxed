@@ -9,11 +9,6 @@ if (CMAKE_SYSTEM_NAME)
   include(cmake/platform_init.cmake)
 endif()
 
-get_filename_component(REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
-if("${CMAKE_CURRENT_BINARY_DIR}" STREQUAL "${REPO_ROOT_DIR}" OR "${CMAKE_CURRENT_BINARY_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
-  message(FATAL_ERROR "In-source building is not supported.")  
-endif()
-
 project(letterboxed VERSION 0.1.0 LANGUAGES CXX)
 
 if (NOT BNG_PLATFORM)
@@ -22,6 +17,8 @@ endif()
 
 include(cmake/platform_config.cmake)
 #include(cmake/commands.cmake)
+
+bng_forbid_in_source_build()
 
 set(CMAKE_INCLUDE "${PROJECT_SOURCE_DIR}/cmake")
 

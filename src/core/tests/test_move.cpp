@@ -4,7 +4,7 @@
 using Data = uint32_t;
 static Data uninit = 0xf00df00d;
 struct Mover {
-	BNG_DECL_NO_COPY(Mover);
+	BNG_DECL_NO_COPY_IMPL_MOVE(Mover);
 	explicit Mover(Data* d = &uninit) : pdata(d) {}
 	~Mover() { if (pdata && pdata != &uninit) { pdata[0] = 0xdeadbeef; } }
 	Data* pdata;

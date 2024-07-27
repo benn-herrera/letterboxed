@@ -24,4 +24,4 @@ add_library(
   ${AIO_SOURCE}
   )
 
-add_lib_test_targets()
+bng_add_lib_test_targets()
