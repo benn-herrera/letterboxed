@@ -79,23 +79,16 @@ namespace bng::word_db {
 
     static uint32_t letter_to_idx(char ltr) {
       const auto i = uint32_t(ltr - 'a');
-      BNG_VERIFY(i < 26, "");
-      return i;
-    }
-
-    static bool is_end(char c) {
-      return !c || c == '\n' || c == '\r';
+      return i < 26 ? i : ~0u;
     }
 
     static char idx_to_letter(uint32_t i) {
-      BNG_VERIFY(i < 26, "");
-      return char('a' + i);
+      return i < 26 ? char('a' + i) : '*';
     }
 
     static uint32_t letter_to_bit(char ltr) {
       const auto i = uint32_t(ltr - 'a');
-      BNG_VERIFY(i < 26, "");
-      return 1u << i;
+      return (i < 26) ? 1u << i : 0u;
     }
 
     static void letters_to_str(uint64_t letter_bits, char* pout);
@@ -152,10 +145,6 @@ namespace bng::word_db {
       delete[] _text;
       _text = nullptr;
       _capacity = 0;
-    }
-
-    static uint32_t header_size_bytes() {
-      return offsetof(TextBuf, _text);
     }
 
   private:
@@ -317,7 +306,7 @@ namespace bng::word_db {
     void cull_word(Word& word);
 
     static uint32_t header_size_bytes() {
-      return offsetof(WordDB, text_buf) + TextBuf::header_size_bytes();
+      return offsetof(WordDB, text_buf);
     }
 
     uint32_t words_count() const {

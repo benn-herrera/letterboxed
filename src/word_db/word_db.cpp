@@ -10,16 +10,17 @@ namespace bng::word_db {
     begin = uint32_t(p - buf_start);
     const auto b = buf_start + begin;
     bool has_double = false;
-    for (; !is_end(*p); ++p) {
+    while (uint32_t lbit = letter_to_bit(*p)) {
       has_double = has_double || (p > b && (*p == *(p - 1)));
-      const auto lbit = letter_to_bit(*p);
       letter_count += uint32_t(!(letters & lbit));
       letters |= lbit;
+      ++p;
     }
     const auto char_count = uint32_t(p - b);
     length = char_count;
-    for (; *p && is_end(*p); ++p)
-      ;
+    while (*p && !letter_to_bit(*p)) {
+      ++p;
+    }
     BNG_VERIFY(letter_count <= 26, "accounting error. can't have %d unique letters", uint32_t(letter_count));
     is_dead = ((char_count > 0x3f) || length < 3 || letter_count > 12 || has_double);
     return uint32_t(p - b);
@@ -145,23 +146,20 @@ namespace bng::word_db {
           cull_word(*wp);
           continue;
         }
-        bool double_tap = false;
-        for (auto sp = str(*wp), se = str(*wp) + wp->length - 1; !double_tap && sp < se; ++sp) {
-          auto letter_pair = Word::letter_to_bit(*sp) | Word::letter_to_bit(*(sp + 1));
+        for (auto sp = str(*wp), se = str(*wp) + wp->length - 1; sp < se; ++sp) {
+          auto letter_pair = Word::letter_to_bit(sp[0]) | Word::letter_to_bit(sp[1]);
           BNG_VERIFY(bool(letter_pair & (letter_pair - 1)), "");
           for (auto s : sides) {
             auto overlap = s.letters & letter_pair;
             // hits same side with 2 sequential letters.
             if (bool(overlap & (overlap - 1))) {
-              double_tap = true;
-              break;
+              cull_word(*wp);
+              goto continue_outer;
             }
           }
         }
-        if (double_tap) {
-          cull_word(*wp);
-          continue;
-        }
+      continue_outer:
+        ;
       }
     }
 
@@ -170,12 +168,11 @@ namespace bng::word_db {
 
   SolutionSet WordDB::solve(const SideSet& sides) const {
     uint32_t all_letters = 0;
-    uint32_t all_letter_count = 0;
     char letters_str[27] = {};
 
     for (const auto& s : sides) {
       if (s.letter_count != 3) {
-        auto si = uint32_t(intptr_t(&s - sides.front()));
+        auto si = uint32_t(intptr_t(&s - &sides.front()));
         s.get_letters_str(letters_str);
         BNG_PRINT("side[%d] %s is not 3 letters.\n",
           si + 1, letters_str);
@@ -183,8 +180,7 @@ namespace bng::word_db {
       }
       all_letters |= uint32_t(s.letters);
     }
-    for (auto lbits = all_letters; lbits; ++all_letter_count, lbits &= (lbits - 1))
-      ;
+    const auto all_letter_count = count_bits(all_letters);
     if (all_letter_count != 12) {
       Word::letters_to_str(all_letters, letters_str);
       BNG_PRINT("puzzle must have 12 unique letters, not %d (%s)\n",
@@ -245,7 +241,7 @@ namespace bng::word_db {
         BNG_VERIFY(false, "failed reading words buffer from %s", path);
       }
 
-      text_buf = TextBuf(text_buf.capacity());
+      text_buf = TextBuf(mem_stats.total_size_bytes());
       text_buf.set_size(text_buf.capacity());
       if (fread(text_buf.begin(), text_buf.capacity(), 1, fin) != 1) {
         BNG_VERIFY(false, "failed reading text buffer from %s", path);
@@ -305,13 +301,16 @@ namespace bng::word_db {
     for (const char* p = begin(); *p; ) {
       const auto pw = p;
       auto li = Word::letter_to_idx(*p);
+      BNG_VERIFY(li < 26, "");
       ++stats.word_counts[li];
       // catch out of order dictionary
       BNG_VERIFY(li == 25 || !stats.word_counts[li + 1], "");
-      for (; !Word::is_end(*p); ++p)
-        ;
-      for (; *p && Word::is_end(*p); ++p)
-        ;
+      while (Word::letter_to_bit(*p)) {
+        ++p;
+      }
+      while (*p && !Word::letter_to_bit(*p)) {
+        ++p;
+      }
       stats.size_bytes[li] += uint32_t(p - pw);
     }
 

@@ -229,5 +229,14 @@ namespace bng::core {
       }
     }
   };
+
+  template<typename N>
+  inline uint32_t count_bits(N bits) {
+    static_assert(std::numeric_limits<N>::is_integer);
+    uint32_t c = 0;
+    for (; bits; ++c, bits &= (bits - 1))
+      ;
+    return c;
+  }
 } // namespace bng
 
