@@ -80,11 +80,9 @@ namespace bng::word_db {
   // WordDB Public
   //
 
-  WordDB::WordDB(const char* path) {
+  WordDB::WordDB(const std::filesystem::path& path) {
     clear_words_by_letter();
-    if (path) {
-      load(path);
-    }
+    load(path);
   }
 
   WordDB::~WordDB() {
@@ -92,30 +90,30 @@ namespace bng::word_db {
     words_buf = nullptr;
   }
 
-  bool WordDB::load(const char* path) {
-    BNG_VERIFY(path && *path, "invalid path");
+  bool WordDB::load(const std::filesystem::path& path) {
+    BNG_VERIFY(!path.empty(), "invalid path");
     BNG_VERIFY(!*this, "already loaded.");
 
-    auto ext = path + (strlen(path) - 4);
-    if (!strcmp(ext, ".pre")) {
+    if (path.extension() == ".pre") {
       load_preproc(path);
     }
-    else if (!strcmp(ext, ".txt")) {
+    else if (path.extension() == ".txt") {
       load_word_list(path);
     }
     else {
-      BNG_VERIFY(false, "%s has unknown extension. must be .txt or .pre", path);
+      auto pstr = path.generic_string();
+      BNG_VERIFY(false, "%s has unknown extension. must be .txt or .pre", pstr.c_str());
     }
     return *this;
   }
 
-  void WordDB::save(const char* path) {
-    BNG_VERIFY(path && *path, "invalid path");
-    auto ext = path + (strlen(path) - 4);
-    if (!strcmp(ext, ".pre")) {
+  void WordDB::save(const std::filesystem::path& path) {
+    BNG_VERIFY(!path.empty(), "invalid path");
+    if (path.extension() == ".pre") {
       return save_preproc(path);
     }
-    BNG_VERIFY(false, "extension %s is invalid, must be .pre", ext);
+    auto pstr = path.generic_string();
+    BNG_VERIFY(false, "path %s has invalid extension, must be .pre", pstr.c_str());
   }
 
   void WordDB::cull(const SideSet& sides) {
@@ -226,10 +224,11 @@ namespace bng::word_db {
   // WordDB Private
   //
 
-  void WordDB::load_preproc(const char* path) {
-    BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "invalid path");
+  void WordDB::load_preproc(const std::filesystem::path& path) {
+    BNG_VERIFY(!path.empty() && path.extension() == ".pre", "invalid path");
 
-    if (auto fin = File(path, "rb")) {
+    auto pathStr = path.generic_string();
+    if (auto fin = File(pathStr.c_str(), "rb")) {
       if (fread(this, header_size_bytes(), 1, fin) != 1) {
         *this = WordDB();
         return;
@@ -238,21 +237,21 @@ namespace bng::word_db {
 
       words_buf = new Word[words_count()];
       if (fread(words_buf, words_size_bytes(), 1, fin) != 1) {
-        BNG_VERIFY(false, "failed reading words buffer from %s", path);
+        BNG_VERIFY(false, "failed reading words buffer from %s", pathStr.c_str());
       }
 
       text_buf = TextBuf(mem_stats.total_size_bytes());
       text_buf.set_size(text_buf.capacity());
       if (fread(text_buf.begin(), text_buf.capacity(), 1, fin) != 1) {
-        BNG_VERIFY(false, "failed reading text buffer from %s", path);
+        BNG_VERIFY(false, "failed reading text buffer from %s", pathStr.c_str());
       }
     }
   }
 
-  void WordDB::save_preproc(const char* path) const {
-    BNG_VERIFY(path && *path && !strcmp(path + strlen(path) - 4, ".pre"), "");
-    BNG_VERIFY(text_buf.size() == live_stats.total_size_bytes() && text_buf.size() == text_buf.capacity(), "");
-    auto fout = File(path, "wb");
+  void WordDB::save_preproc(const std::filesystem::path& path) const {
+    BNG_VERIFY(!path.empty() && path.extension() == ".stp", "");
+    BNG_VERIFY(text_buf.size() == live_stats.total_size_bytes(), "");
+    auto fout = File(path.generic_string().c_str(), "wb");
     BNG_VERIFY(fout, "");
     if (fwrite(this, header_size_bytes(), 1, fout) != 1) {
       BNG_VERIFY(false, "");
@@ -266,10 +265,12 @@ namespace bng::word_db {
   }
 
 
-  void WordDB::load_word_list(const char* path) {
+  void WordDB::load_word_list(const std::filesystem::path& path) {
+    BNG_VERIFY(!path.empty() && path.extension() == ".txt", "");
     text_buf = TextBuf();
 
-    if (auto dict_file = File(path, "r")) {
+    const auto pathStr = path.generic_string();
+    if (auto dict_file = File(pathStr.c_str(), "r")) {
       text_buf = TextBuf(dict_file.size_bytes());
       if (size_t read_count = fread(text_buf.begin(), 1, text_buf.capacity(), dict_file.fp)) {
         if (read_count < text_buf.capacity()) {
@@ -278,7 +279,7 @@ namespace bng::word_db {
         }
       }
       else {
-        BNG_VERIFY(false, "failed reading %s", path);
+        BNG_VERIFY(false, "failed reading %s", pathStr.c_str());
         return;
       }
 

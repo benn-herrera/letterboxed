@@ -221,7 +221,9 @@ namespace bng::word_db {
 
     using SideSet = std::array<Word, 4>;
 
-    explicit WordDB(const char* path = nullptr);
+    WordDB() = default;
+
+    explicit WordDB(const std::filesystem::path& path);
 
     ~WordDB();
 
@@ -238,9 +240,9 @@ namespace bng::word_db {
       return !words_buf;
     }
 
-    bool load(const char* path);
+    bool load(const std::filesystem::path& path);
 
-    void save(const char* path);
+    void save(const std::filesystem::path& path);
 
     void cull(const SideSet& sides);
 
@@ -291,11 +293,11 @@ namespace bng::word_db {
     }
 
   private:
-    void load_preproc(const char* path);
+    void load_preproc(const std::filesystem::path& path);
 
-    void save_preproc(const char* path) const;
+    void save_preproc(const std::filesystem::path& path) const;
 
-    void load_word_list(const char* path);
+    void load_word_list(const std::filesystem::path& path);
 
     void process_word_list();
 
